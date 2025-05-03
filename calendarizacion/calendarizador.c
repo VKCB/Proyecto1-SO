@@ -3,6 +3,7 @@
 #include "CEthreads.h"
 #include "c_tiempo_real.h"
 #include "RR.h"
+#include "FCFS.h"
 #include <stdio.h>
 
 // Variable global para almacenar el algoritmo configurado
@@ -29,19 +30,22 @@ void ingresar_carro(Carro* carro) {
             break;
         case RR:
             printf("Usando el algoritmo de Round Robin para ingresar el carro %d\n", carro->id);
-            rr(carro); // Llama a la funcion de Round Robin
+            rr_agregar_carro(carro); // Agregar el carro a la cola de Round Robin
+            break;
+
+        case FCFS:
+            printf("Usando el algoritmo de First Come First Serve para ingresar el carro %d\n", carro->id);
+            fcfs_agregar_carro(carro); // Agregar el carro a la cola de FCFS
             break;
         case SJF:
             printf("SJF no implementado aún.\n");
-            break;
-        case FCFS:
-            printf("FCFS no implementado aún.\n");
             break;
         default:
             printf("Algoritmo desconocido.\n");
             break;
     }
 }
+
 
 // Marca que un carro ha salido de la carretera
 void salir_carro(Carro* carro) {
@@ -55,9 +59,16 @@ void salir_carro(Carro* carro) {
             tiempo_real_salir(carro);
             break;
         case RR:
-        case SJF:
+            printf("Usando el algoritmo de Round Robin para sacar el carro %d\n", carro->id);
+            rr_salir(carro); // Llama a la funcion de salida de RR
+            break;
         case FCFS:
-            printf("Salir no implementado para este algoritmo.\n");
+            printf("Usando el algoritmo de First Come First Serve para sacar el carro %d\n", carro->id);
+            fcfs_salir(carro); // Llamar a la función salir FCFS
+            break;
+
+        case SJF:
+            printf("SJF no implementado aún.\n");
             break;
         default:
             printf("Algoritmo desconocido.\n");

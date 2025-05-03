@@ -17,10 +17,10 @@ extern int tiempos_restantes[];
 
 //-----FUnciones de RR.c-----//
 // Funcion que ejecuta cada hilo
-void* funcion_carro(void* arg);
+void* funcion_carro_rr(void* arg);
 
-void agregar_carro(Car* carro);
-void rr();
-void salir(Car* carro);
+void rr_agregar_carro(Car* carro);
+void rr_exec();
+void rr_salir(Car* carro);
 
 #endif // RR_H
