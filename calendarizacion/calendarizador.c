@@ -2,10 +2,13 @@
 #include "c_prioridad.h"
 #include "CEthreads.h"
 #include "c_tiempo_real.h"
+#include "RR.h"
 #include <stdio.h>
 
 // Variable global para almacenar el algoritmo configurado
 static Algoritmo algoritmo_actual = PRIORIDAD;
+
+
 
 // Configura el algoritmo de calendarización
 void configurar_algoritmo(Algoritmo algoritmo) {
@@ -25,7 +28,8 @@ void ingresar_carro(Carro* carro) {
             tiempo_real_ingresar(carro, 5);  // Tiempo máximo de 5 segundos
             break;
         case RR:
-            printf("Round Robin no implementado aún.\n");
+            printf("Usando el algoritmo de Round Robin para ingresar el carro %d\n", carro->id);
+            rr(carro); // Llama a la funcion de Round Robin
             break;
         case SJF:
             printf("SJF no implementado aún.\n");
