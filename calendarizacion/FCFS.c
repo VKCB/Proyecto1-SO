@@ -18,6 +18,18 @@ void init_fcfs() {
     }
 }
 
+// Función que ejecuta cada carro (hilo)
+void* funcion_carro_fcfs(void* arg) {
+    Car* carro = (Car*)arg;
+
+    printf("[FCFS] Carro %d está cruzando...\n", carro->tid);
+    sleep(1); // Simula el tiempo que tarda en cruzar
+    printf("[FCFS] Carro %d ha cruzado.\n", carro->tid);
+
+    CEthread_exit();
+    return NULL;
+}
+
 // Agrega un carro a la cola de FCFS
 void fcfs_agregar_carro(Car* carro) {
     init_fcfs();
@@ -73,20 +85,10 @@ void fcfs_exec() {
     printf("[FCFS] Todos los carros han sido procesados.\n");
 }
 
-// Función que ejecuta cada carro (hilo)
-void* funcion_carro_fcfs(void* arg) {
-    Car* carro = (Car*)arg;
 
-    printf("[FCFS] Carro %d está cruzando...\n", carro->tid);
-    sleep(1); // Simula el tiempo que tarda en cruzar
-    printf("[FCFS] Carro %d ha cruzado.\n", carro->tid);
-
-    CEthread_exit();
-    return NULL;
-}
 
 void fcfs_salir(Car* carro) {
-    inicializar_fcfs();
+    init_fcfs();
     CEmutex_lock(&mutex);
 
     int encontrado = -1;

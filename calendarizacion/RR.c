@@ -7,9 +7,9 @@
 #define QUANTUM_USEC 500000 // Quantum de 0.5 segundos
 
 // Variables globales para Round Robin
-static Car* cola_listos[100]; // Cola de carros listos (máximo 100 carros)
-static int num_listos = 0;    // Número de carros en la cola
-static int tiempos_restantes[100]; // Tiempos restantes para cada carro (en microsegundos)
+Car* cola_listos[100]; // Cola de carros listos (máximo 100 carros)
+int num_listos = 0;    // Número de carros en la cola
+int tiempos_restantes[100]; // Tiempos restantes para cada carro (en microsegundos)
 
 // Mutex para proteger las variables compartidas
 static CEMutex mutex;

@@ -1,6 +1,8 @@
 #ifndef CALENDARIZADOR_H
 #define CALENDARIZADOR_H
 
+#include "CEthreads.h"
+
 typedef struct {
     int id;
     int prioridad;
@@ -18,15 +20,15 @@ typedef enum {
 void configurar_algoritmo(Algoritmo algoritmo);
 
 // Funciones para el algoritmo de Prioridad
-void prioridad_ingresar(Carro* carro);
-void prioridad_salir(Carro* carro);
+void prioridad_ingresar(Car* carro);
+void prioridad_salir(Car* carro);
 
 // Funciones para el algoritmo de Tiempo Real
-void tiempo_real_ingresar(Carro* carro, int tiempo_maximo);
-void tiempo_real_salir(Carro* carro);
+void tiempo_real_ingresar(Car* carro, int tiempo_maximo);
+void tiempo_real_salir(Car* carro);
 
 // Funciones generales
-void ingresar_carro(Carro* carro);
-void salir_carro(Carro* carro);
+void ingresar_carro(Car* carro);
+void salir_carro(Car* carro);
 
 #endif // CALENDARIZADOR_H

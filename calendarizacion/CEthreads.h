@@ -37,6 +37,8 @@ typedef struct {
     LugarInicio lugar_inicio; // Side (left/right)
     TipoCarro tipo;           // Car type (normal/sport/prioritario)
     float velocidad;          // Speed
+    int prioridad;      // Priority
+    int tiempo;        // Time
 } Car;
 
 // Thread API
