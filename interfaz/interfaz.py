@@ -1,106 +1,227 @@
-import pygame  
-import time   
+import pygame
+import threading
+import ctypes
+import time
 
 # Dimensiones de la ventana
 ANCHO, ALTO = 800, 400
 
 # Diccionario que define los colores de los carros según su tipo
 COLOR_CARROS = {
-    "N": (70, 70, 200),      # azul
-    "D": (255, 140, 0),      # anaranjado
-    "E": (200, 0, 0),        # ojo
+    "N": (0, 255, 0),      # verde para carros normales
+    "D": (0, 0, 255),      # azul para carros deportivos
+    "E": (255, 0, 0),      # rojo para carros de emergencia
 }
 
-class Carro:
-    def __init__(self, lado, tipo, y_pos):
-        # Inicializamos las propiedades del carro
-        self.lado = lado  # Lado de inicio ("I" = izquierda, "D" = derecha)
-        self.tipo = tipo  # Tipo de carro ("N", "D", "E")
-        self.color = COLOR_CARROS[tipo]  # Color según el tipo
-        self.y = y_pos  # Posición vertical (carril)
-        # Posición inicial en x depende del lado
+# Clase CarroC que representa la estructura en C
+class CarroC(ctypes.Structure):
+    _fields_ = [
+        ("id", ctypes.c_int),
+        ("prioridad", ctypes.c_int),
+        ("tiempo", ctypes.c_int),
+    ]
+
+# Definición del enum Algoritmo
+class Algoritmo:
+    PRIORIDAD = 1
+    TIEMPO_REAL = 4
+    RR = 2
+    SJF = 3
+    FCFS = 5
+
+# Carga la biblioteca compartida
+libcalendarizacion = ctypes.CDLL("../calendarizacion/libcalendarizacion.so")
+
+# Define las funciones de la biblioteca compartida
+configurar_algoritmo = libcalendarizacion.configurar_algoritmo
+configurar_algoritmo.argtypes = [ctypes.c_int]
+configurar_algoritmo.restype = None
+
+ingresar_carro = libcalendarizacion.ingresar_carro
+ingresar_carro.argtypes = [ctypes.POINTER(CarroC)]
+ingresar_carro.restype = None
+
+salir_carro = libcalendarizacion.salir_carro
+salir_carro.argtypes = [ctypes.POINTER(CarroC)]
+salir_carro.restype = None
+
+# Clase CarroHilo
+class CarroHilo(threading.Thread):
+    def __init__(self, lado, tipo, y_pos, carros, lock):
+        super().__init__()
+        self.lado = lado
+        self.tipo = tipo
+        self.color = COLOR_CARROS[tipo]  # Asignar color según el tipo
+        self.y = y_pos
         self.x = 0 if lado == "I" else ANCHO
-        # Velocidad según el tipo de carro
-        self.velocidad = 1 if tipo == "N" else 2 if tipo == "D" else 3
+        self.velocidad = 1 if tipo == "N" else 2 if tipo == "D" else 3  # Velocidad según el tipo
+        self.carros = carros
+        self.lock = lock
+        self.running = True
 
-    # Método mover el carro
-    def mover(self):
-        if self.lado == "I":  
-            self.x += self.velocidad  
-        else:  
-            self.x -= self.velocidad  
+    def run(self):
+        while self.running:
+            with self.lock:
+                # Evitar colisiones
+                for otro_carro in self.carros:
+                    if otro_carro != self:
+                        if self.lado == "I" and self.x + self.velocidad + 40 > otro_carro.x and self.y == otro_carro.y:
+                            return
+                        if self.lado == "D" and self.x - self.velocidad < otro_carro.x + 40 and self.y == otro_carro.y:
+                            return
 
-    # Método para dibujar el carro en la ventana
+                # Mover el carro
+                if self.lado == "I":
+                    self.x += self.velocidad
+                else:
+                    self.x -= self.velocidad
+
+                # Verificar si el carro salió de la pantalla
+                if self.x > ANCHO or self.x < 0:
+                    carro_c = CarroC(id=self.carros.index(self), prioridad=0, tiempo=0)
+                    salir_carro(ctypes.byref(carro_c))
+                    self.carros.remove(self)
+                    self.running = False
+
+            time.sleep(0.05)  # Controlar la velocidad del hilo
+
     def dibujar(self, ventana):
-        # Dibujamos un rectángulo que representa el carro
         pygame.draw.rect(ventana, self.color, (self.x, self.y, 40, 20))
 
-# Dibujamos la línea divisoria blanca discontinua
+# Dibujar línea discontinua
 def dibujar_linea_discontinua(ventana, color, x_inicio, x_fin, y, ancho_segmento, espacio):
     x = x_inicio
     while x < x_fin:
-        # Dibujamos un segmento de la línea
         pygame.draw.line(ventana, color, (x, y), (x + ancho_segmento, y), 5)
-        # Dejamos un espacio entre segmentos
         x += ancho_segmento + espacio
 
-# Función para leer los datos de los carros desde un archivo
-def leer_carros():
-    carros = []  # Lista para almacenar los carros
-    # Abrir informaciòn de los carros
-    with open("../entradas/carros.txt", "r") as f:
-        lineas = f.readlines()  # Leemos todas las líneas
-        for i, linea in enumerate(lineas):
-    
-            if linea.strip() and not linea.startswith("#"):
-                lado, tipo = linea.strip().split()  # Obtenemos lado y tipo
-                # Carril superior para carros que van hacia la derecha
-                if lado == "I":
-                    y_pos = ALTO // 2 - 30  # Ajustamos para el carril superior
-                # Carril inferior para carros que van hacia la izquierda
-                else:
-                    y_pos = ALTO // 2 + 10  # Ajustamos para el carril inferior
-                # Creamos un carro y lo añadimos a la lista
-                carros.append(Carro(lado, tipo, y_pos))
-    print(f"Carros cargados: {len(carros)}")  # Mensaje de depuración
-    return carros  # Devolvemos la lista de carros
+def mostrar_ventana_inicial():
+    pygame.init()
+    ventana = pygame.display.set_mode((ANCHO, ALTO))
+    pygame.display.set_caption("Seleccionar Algoritmo de Calendarización")
 
+    fuente = pygame.font.Font(None, 36)
+    opciones = [
+        "1. Prioridad",
+        "2. Tiempo Real",
+        "3. Round Robin",
+        "4. SJF (Shortest Job First)",
+        "5. FCFS (First Come First Serve)"
+    ]
+    seleccion = None
+
+    corriendo = True
+    while corriendo:
+        ventana.fill((200, 200, 200))  # Fondo gris claro
+
+        # Mostrar título
+        titulo = fuente.render("Seleccione un algoritmo de calendarización:", True, (0, 0, 0))
+        ventana.blit(titulo, (ANCHO // 2 - titulo.get_width() // 2, 50))
+
+        # Mostrar opciones
+        for i, opcion in enumerate(opciones):
+            texto = fuente.render(opcion, True, (0, 0, 0))
+            ventana.blit(texto, (ANCHO // 2 - texto.get_width() // 2, 150 + i * 40))
+
+        pygame.display.update()
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_1:
+                    seleccion = Algoritmo.PRIORIDAD
+                    corriendo = False
+                elif evento.key == pygame.K_2:
+                    seleccion = Algoritmo.TIEMPO_REAL
+                    corriendo = False
+                elif evento.key == pygame.K_3:
+                    seleccion = Algoritmo.RR
+                    corriendo = False
+                elif evento.key == pygame.K_4:
+                    seleccion = Algoritmo.SJF
+                    corriendo = False
+                elif evento.key == pygame.K_5:
+                    seleccion = Algoritmo.FCFS
+                    corriendo = False
+
+    return seleccion
+
+# Función principal
 def main():
-    pygame.init()  
-    
+    # Mostrar ventana inicial y obtener la selección del usuario
+    algoritmo_seleccionado = mostrar_ventana_inicial()
+
+    # Configurar el algoritmo seleccionado en la biblioteca compartida
+    configurar_algoritmo(algoritmo_seleccionado)
+
+    pygame.init()
     ventana = pygame.display.set_mode((ANCHO, ALTO))
     pygame.display.set_caption("Scheduling Cars")
 
-    # Cargamos los carros desde el archivo
-    carros = leer_carros()
-    reloj = pygame.time.Clock()  # Reloj para controlar los FPS
+    carros = []
+    lock = threading.Lock()
+    reloj = pygame.time.Clock()
 
-    corriendo = True  
+    corriendo = True
     while corriendo:
-        
         for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:  
-                corriendo = False  
+            if evento.type == pygame.QUIT:
+                corriendo = False
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_w:
+                    corriendo = False
+                elif evento.key == pygame.K_i:  # Generar carro normal desde la izquierda (carril superior)
+                    nuevo_carro = CarroHilo("I", "N", ALTO // 2 - 60, carros, lock)
+                    with lock:
+                        carros.append(nuevo_carro)
+                    nuevo_carro.start()
+                elif evento.key == pygame.K_d:  # Generar carro normal desde la derecha (carril inferior)
+                    nuevo_carro = CarroHilo("D", "N", ALTO // 2 + 40, carros, lock)
+                    with lock:
+                        carros.append(nuevo_carro)
+                    nuevo_carro.start()
+                elif evento.key == pygame.K_e:  # Generar carro de emergencia desde la izquierda (carril superior)
+                    nuevo_carro = CarroHilo("I", "E", ALTO // 2 - 60, carros, lock)
+                    with lock:
+                        carros.append(nuevo_carro)
+                    nuevo_carro.start()
+                elif evento.key == pygame.K_s:  # Generar carro deportivo desde la derecha (carril inferior)
+                    nuevo_carro = CarroHilo("D", "D", ALTO // 2 + 40, carros, lock)
+                    with lock:
+                        carros.append(nuevo_carro)
+                    nuevo_carro.start()
+                elif evento.key == pygame.K_r:  # Generar carro de emergencia desde la derecha (carril inferior)
+                    nuevo_carro = CarroHilo("D", "E", ALTO // 2 + 40, carros, lock)
+                    with lock:
+                        carros.append(nuevo_carro)
+                    nuevo_carro.start()
+                elif evento.key == pygame.K_a:  # Generar carro deportivo desde la izquierda (carril superior)
+                    nuevo_carro = CarroHilo("I", "D", ALTO // 2 - 60, carros, lock)
+                    with lock:
+                        carros.append(nuevo_carro)
+                    nuevo_carro.start()
 
-        # Fondo de la ventana 
         ventana.fill((245, 245, 220))
-
-        # Dibujamos la calle 
-        pygame.draw.rect(ventana, (180, 180, 180), (0, ALTO // 4, ANCHO, ALTO // 2))  # Calle más ancha
-
-        # Dibujamos la línea divisoria blanca discontinua
+        pygame.draw.rect(ventana, (180, 180, 180), (0, ALTO // 4, ANCHO, ALTO // 2))
         dibujar_linea_discontinua(ventana, (255, 255, 255), 0, ANCHO, ALTO // 2, 20, 10)
 
-        # Dibujamos y movemos los carros
+        with lock:
+            for carro in carros:
+                carro.dibujar(ventana)
+
+        pygame.display.update()
+        reloj.tick(60)
+
+    # Detener todos los hilos
+    with lock:
         for carro in carros:
-            carro.mover()  # Actualizamos la posición del carro
-            carro.dibujar(ventana)  # Dibujamos el carro en la ventana
+            carro.running = False
+    for carro in carros:
+        carro.join()
 
-        pygame.display.update()  # Actualizamos la pantalla
-        reloj.tick(60)  # Limitamos a 60 FPS
-
-    pygame.quit()  
-
+    pygame.quit()
 
 if __name__ == "__main__":
     main()

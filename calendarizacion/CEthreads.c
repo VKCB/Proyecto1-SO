@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <limits.h> // Agregado para INT_MAX
 
 #define STACK_SIZE (1024 * 1024) // 1MB
 
@@ -21,6 +22,10 @@ static int futex_wait(volatile int *addr, int expected) {
 
 static int futex_wake(volatile int *addr) {
     return syscall(SYS_futex, addr, FUTEX_WAKE, 1, NULL, NULL, 0);
+}
+
+static int futex_wake_all(volatile int *addr) {
+    return syscall(SYS_futex, addr, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
 }
 
 // Internal wrapper to call the thread function
@@ -124,4 +129,48 @@ int CEmutex_unlock(CEMutex* mutex) {
 // Exit thread
 void CEthread_exit(void) {
     _exit(0);
+}
+
+// Inicializa una condición
+void CECond_init(CECond* cond) {
+    cond->estado = 0;  // Inicialmente no señalada
+    cond->waiting = 0; // No hay hilos esperando
+}
+
+// Espera a que la condición sea señalada
+void CECond_wait(CECond* cond, CEMutex* mutex) {
+    // Incrementa el contador de hilos esperando
+    __sync_fetch_and_add(&cond->waiting, 1);
+
+    // Libera el mutex externo
+    CEmutex_unlock(mutex);
+
+    // Espera mientras la condición no esté señalada
+    while (cond->estado == 0) {
+        futex_wait(&cond->estado, 0);
+    }
+
+    // Restablece el estado de la condición si no hay más hilos esperando
+    if (__sync_sub_and_fetch(&cond->waiting, 1) == 0) {
+        cond->estado = 0;
+    }
+
+    // Vuelve a bloquear el mutex externo
+    CEmutex_lock(mutex);
+}
+
+// Señala una condición (despierta un hilo)
+void CECond_signal(CECond* cond) {
+    if (cond->waiting > 0) {
+        cond->estado = 1;  // Señala la condición
+        futex_wake(&cond->estado);  // Despierta un hilo
+    }
+}
+
+// Señala una condición (despierta todos los hilos)
+void CECond_broadcast(CECond* cond) {
+    if (cond->waiting > 0) {
+        cond->estado = 1;  // Señala la condición
+        futex_wake_all(&cond->estado);  // Despierta todos los hilos
+    }
 }

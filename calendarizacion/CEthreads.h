@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+
 // Start side
 typedef enum {
     LUGAR_IZQUIERDA,
@@ -17,11 +18,18 @@ typedef enum {
     TIPO_PRIORITARIO
 } TipoCarro;
 
+// Mutex personalizado
 typedef struct {
     volatile int locked;
 } CEMutex;
 
+// Condición personalizada
+typedef struct {
+    int estado;       // Estado de la condición (0: no señalada, 1: señalada)
+    int waiting;      // Número de hilos esperando
+} CECond;
 
+// Car structure
 typedef struct {
     pid_t tid;           // Thread ID
     void* stack;         // Stack memory
@@ -35,9 +43,17 @@ typedef struct {
 int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg);
 int CEthread_join(Car* thread);
 void CEthread_exit(void);
+
+// Mutex API
 int CEmutex_init(CEMutex* mutex);
 int CEmutex_destroy(CEMutex* mutex);
 int CEmutex_lock(CEMutex* mutex);
 int CEmutex_unlock(CEMutex* mutex);
+
+// Condición API
+void CECond_init(CECond* cond);
+void CECond_wait(CECond* cond, CEMutex* mutex);
+void CECond_signal(CECond* cond);
+void CECond_broadcast(CECond* cond);
 
 #endif // CETHREADS_H
