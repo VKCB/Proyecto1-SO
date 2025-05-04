@@ -1,9 +1,9 @@
 #include "calendarizador.h"
 #include "c_prioridad.h"
-#include "CEthreads.h"
 #include "c_tiempo_real.h"
 #include "RR.h"
 #include "FCFS.h"
+#include "SJF.h"
 #include <stdio.h>
 
 // Variable global para almacenar el algoritmo configurado
@@ -30,15 +30,16 @@ void ingresar_carro(Car* carro) {
             break;
         case RR:
             printf("Usando el algoritmo de Round Robin para ingresar el carro %d\n", carro->tid);
-            rr_agregar_carro(carro); // Agregar el carro a la cola de Round Robin
+            rr_agregar_carro(carro); // Agregar el carro a la cola y ejecutar Round Robin
             break;
 
         case FCFS:
             printf("Usando el algoritmo de First Come First Serve para ingresar el carro %d\n", carro->tid);
-            fcfs_agregar_carro(carro); // Agregar el carro a la cola de FCFS
+            fcfs_agregar_carro(carro); // Agregar el carro a la cola y ejecutar FCFS
             break;
         case SJF:
-            printf("SJF no implementado aún.\n");
+            printf("Usando el algoritmo de Shortest Job First para ingresar el carro %d\n", carro->tid);
+            sjf_agregar_carro(carro); // Agregar el carro a la cola y ejecutar SJF
             break;
         default:
             printf("Algoritmo desconocido.\n");

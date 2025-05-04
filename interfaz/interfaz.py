@@ -30,7 +30,7 @@ class Algoritmo:
     FCFS = 5
 
 # Carga la biblioteca compartida
-libcalendarizacion = ctypes.CDLL("../calendarizacion/libcalendarizacion.so")
+libcalendarizacion = ctypes.CDLL("../Proyecto1-SO/calendarizacion/libcalendarizador.so")
 
 # Define las funciones de la biblioteca compartida
 configurar_algoritmo = libcalendarizacion.configurar_algoritmo
