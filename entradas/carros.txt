@@ -1,0 +1,4 @@
+# Formato: [LADO] [TIPO]
+I N
+D D
+I E
