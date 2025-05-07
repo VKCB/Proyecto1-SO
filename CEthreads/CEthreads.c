@@ -24,22 +24,38 @@ static int futex_wake(volatile int *addr) {
 }
 
 // Internal wrapper to call the thread function
-static int CEthread_start(void* arg) {
-    void** args = (void**)arg;
+#include <sys/prctl.h>
+#include <string.h>
+#include <stdio.h>  // For snprintf
+
+int CEthread_start(void* raw_args) {
+    void** args = (void**)raw_args;
     void *(*start_routine)(void*) = args[0];
-    void* real_arg = args[1];
-    Car* thread = args[2];
+    void* arg = args[1];
+    Car* thread = (Car*)args[2];
 
-    free(arg); // Free the wrapper memory
+    Car* car = (Car*)arg;
 
-    start_routine(real_arg);
+    if (car) {
+        const char* side = (car->lugar_inicio == LUGAR_IZQUIERDA) ? "IZQ" : "DER";
+        const char* type = "UNK";
+        switch (car->tipo) {
+            case TIPO_NORMAL: type = "NORM"; break;
+            case TIPO_SPORT: type = "SPRT"; break;
+            case TIPO_PRIORITARIO: type = "PRIO"; break;
+        }
 
-    // Mark as done
+        char name[16];
+        snprintf(name, sizeof(name), "%s_%s_%.0f", side, type, car->velocidad);
+        prctl(PR_SET_NAME, name, 0, 0, 0);
+    }
+
+    void* ret = start_routine(arg);
     thread->done = 1;
-    futex_wake(&thread->done);
-
-    return 0;
+    free(raw_args);
+    return (int)(intptr_t)ret;
 }
+
 
 // Create a thread
 int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {

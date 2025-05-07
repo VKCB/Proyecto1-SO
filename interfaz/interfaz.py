@@ -48,7 +48,7 @@ def dibujar_linea_discontinua(ventana, color, x_inicio, x_fin, y, ancho_segmento
 def leer_carros():
     carros = []  # Lista para almacenar los carros
     # Abrir informaciòn de los carros
-    with open("../entradas/carros.txt", "r") as f:
+    with open("./entradas/carros.txt", "r") as f:
         lineas = f.readlines()  # Leemos todas las líneas
         for i, linea in enumerate(lineas):
     

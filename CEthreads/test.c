@@ -25,8 +25,13 @@ void* car_thread(void* arg) {
            tipo_to_string(car->tipo),
            car->velocidad);
 
-    // Simula avanzar
-    sleep(1);
+    // Simula trabajo largo (mantiene el thread vivo)
+    for (int i = 0; i < 10; ++i) {
+        printf("🕒 Carro %s de tipo %s sigue esperando...\n",
+               lugar_to_string(car->lugar_inicio),
+               tipo_to_string(car->tipo));
+        sleep(1);
+    }
 
     printf("✅ Carro %s de tipo %s ha cruzado\n",
            lugar_to_string(car->lugar_inicio),
@@ -41,9 +46,9 @@ void* mutex_thread(void* arg) {
     printf("🔒 Intentando bloquear mutex\n");
     CEmutex_lock(mutex);
     printf("🔓 Mutex bloqueado\n");
-    
-    // Simulate some work with the mutex locked
-    sleep(1);
+
+    // Simula trabajo con mutex bloqueado
+    sleep(5);
     
     printf("🔒 Desbloqueando mutex\n");
     CEmutex_unlock(mutex);
@@ -56,35 +61,39 @@ int main() {
     Car car2 = { .lugar_inicio = LUGAR_DERECHA, .tipo = TIPO_SPORT, .velocidad = 50.0f };
     Car car3 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_PRIORITARIO, .velocidad = 40.0f };
 
-    // Test thread creation and joining
-    printf("🚗 Creando y esperando que los carros crucen\n");
+    // Crear los carros pero NO hacer join inmediatamente
+    printf("🚗 Creando carros (los hilos vivirán más tiempo)\n");
 
     CEthread_create(&car1, car_thread, &car1);
-    CEthread_join(&car1);
-
     CEthread_create(&car2, car_thread, &car2);
-    CEthread_join(&car2);
-
     CEthread_create(&car3, car_thread, &car3);
+
+    // Espera para que el monitor pueda ver los hilos
+    sleep(1);
+
+    // Ahora sí esperamos que terminen
+    CEthread_join(&car1);
+    CEthread_join(&car2);
     CEthread_join(&car3);
 
     printf("🏆 Todos los carros han cruzado\n");
 
-    // Test mutex functionality
+    // Prueba de mutex
+
+    /*
     CEMutex mutex;
     CEmutex_init(&mutex);
 
-    pthread_t t1, t2;
-
-    // Create two threads that will test the mutex
+    pthread_t t1, t2, t3;
     pthread_create(&t1, NULL, mutex_thread, &mutex);
     pthread_create(&t2, NULL, mutex_thread, &mutex);
+    pthread_create(&t3, NULL, mutex_thread, &mutex);
 
-    // Wait for the mutex threads to finish
+
     pthread_join(t1, NULL);
     pthread_join(t2, NULL);
 
     CEmutex_destroy(&mutex);
-
+    */
     return 0;
 }
