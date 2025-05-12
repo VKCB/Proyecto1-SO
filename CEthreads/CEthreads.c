@@ -17,7 +17,7 @@
 
 #define STACK_SIZE (1024 * 1024) // 1MB
 
-// Internal futex helpers
+
 static int futex_wait(volatile int *addr, int expected) {
     return syscall(SYS_futex, addr, FUTEX_WAIT, expected, NULL, NULL, 0);
 }
@@ -26,7 +26,7 @@ static int futex_wake(volatile int *addr) {
     return syscall(SYS_futex, addr, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
-// Internal wrapper to call the thread function
+
 int CEthread_start(void* raw_args) {
     void** args = (void**)raw_args;
     void *(*start_routine)(void*) = args[0];
@@ -47,7 +47,7 @@ int CEthread_start(void* raw_args) {
         char name[16];
         snprintf(name, sizeof(name), "%s_%s_%d", side, type, (int)car->velocidad);
         prctl(PR_SET_NAME, name, 0, 0, 0);
-        printf("Nombre del hilo configurado: %s\n", name); // Depuración
+        printf("Nombre del hilo configurado: %s\n", name); 
     }
 
     void* ret = start_routine(arg);
@@ -56,7 +56,7 @@ int CEthread_start(void* raw_args) {
     return (int)(intptr_t)ret;
 }
 
-// Create a thread
+
 int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
     void* stack = malloc(STACK_SIZE);
     if (!stack) {
@@ -90,7 +90,7 @@ int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
     thread->tid = tid;
     thread->stack = stack;
 
-    printf("✅ Hilo creado: TID=%d\n", tid);
+    printf("Hilo creado: TID=%d\n", tid);
     return 0;
 }
 
@@ -120,7 +120,7 @@ int CEmutex_lock(CEMutex* mutex) {
     if (mutex == NULL) return -1;
 
     while (__sync_lock_test_and_set(&mutex->locked, 1)) {
-        // Mutex already locked, wait
+        
         futex_wait(&mutex->locked, 1);
     }
     return 0;
@@ -130,8 +130,8 @@ int CEmutex_lock(CEMutex* mutex) {
 int CEmutex_unlock(CEMutex* mutex) {
     if (mutex == NULL) return -1;
 
-    mutex->locked = 0;       // Unlock
-    futex_wake(&mutex->locked);  // Wake up one waiting thread (if any)
+    mutex->locked = 0;       
+    futex_wake(&mutex->locked);  
     
     return 0;
 }
