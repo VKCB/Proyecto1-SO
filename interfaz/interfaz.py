@@ -79,9 +79,8 @@ class SeleccionAlgoritmoApp:
         # Crear una nueva ventana para solicitar el parámetro adicional
         parametro_root = tk.Tk()
         parametro_root.title(f"Parámetro para {algoritmo}")
-        parametro_root.geometry("800x400")
+        parametro_root.geometry("400x200")
         parametro_root.resizable(False, False)
-        self.center_window(parametro_root)
 
         tk.Label(parametro_root, text=mensaje, font=("Arial", 14)).pack(pady=20)
         parametro_entry = tk.Entry(parametro_root, font=("Arial", 14))
@@ -120,14 +119,14 @@ class CalleApp:
 
         # Configurar tamaño y centrar la ventana
         self.root.geometry("800x400")
-        self.root.resizable(False, False)  
+        self.root.resizable(False, False)
         self.center_window(self.root)
 
         # Configuración del lienzo
         self.canvas = tk.Canvas(root, width=800, height=400, bg="white")
         self.canvas.pack()
 
-        # Dibujar la calle (ajustada al tamaño de la ventana)
+        # Dibujar la calle
         self.canvas.create_rectangle(0, 150, 800, 250, fill="gray", outline="gray")
 
         self.carros = {}
@@ -135,12 +134,21 @@ class CalleApp:
         self.running = True
         self.algoritmo = algoritmo
         self.parametro = parametro
+        self.tipo_carro_actual = 0  # Para intercalar tipos de carros
+        self.test_process = None  # Inicializar el atributo test_process
 
-        # Iniciar el programa 'test' con el algoritmo y parámetro seleccionados
-        self.test_process = None
-        self.test_pid = None
+        # Tipos de carros y sus propiedades
+        self.tipos_carros = [
+            {"tipo": "Normal", "velocidad": 5, "color": "blue"},
+            {"tipo": "Deportivo", "velocidad": 10, "color": "red"},
+            {"tipo": "Emergencia", "velocidad": 15, "color": "yellow"}
+        ]
 
-        # Vincular la tecla 'w' para cerrar el programa
+        # Vincular teclas para generar carros
+        self.root.bind("<k>", lambda e: self.generar_carro("IZQ"))  # Tecla 'K' para la izquierda
+        self.root.bind("<l>", lambda e: self.generar_carro("DER"))  # Tecla 'L' para la derecha
+
+        # Vincular la tecla 'w' para cerrar la ventana
         self.root.bind("<w>", self.close_program)
 
         # Configurar el cierre al presionar 'x'
@@ -165,19 +173,69 @@ class CalleApp:
         self.stop()
         self.root.destroy()
 
+    def generar_carro(self, lado):
+        """Generar un nuevo carro desde el lado especificado."""
+        with self.lock:
+            tipo_carro = self.tipos_carros[self.tipo_carro_actual]
+            self.tipo_carro_actual = (self.tipo_carro_actual + 1) % len(self.tipos_carros)
+
+            x = 0 if lado == "IZQ" else 800
+            y = 180
+            dx = tipo_carro["velocidad"] if lado == "IZQ" else -tipo_carro["velocidad"]
+
+            carro = {
+                "x": x,
+                "y": y,
+                "dx": dx,
+                "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill=tipo_carro["color"]),
+                "text": self.canvas.create_text(x+20, y+10, text=tipo_carro["tipo"], fill="white"),
+                "tipo": tipo_carro["tipo"]
+            }
+
+            # Generar un identificador único para el carro
+            tid = threading.get_ident() + len(self.carros)
+            self.carros[tid] = carro
+
+            # Si es un carro de emergencia, iniciar un temporizador para su prioridad
+            if tipo_carro["tipo"] == "Emergencia":
+                threading.Thread(target=self.gestionar_prioridad_emergencia, args=(tid,), daemon=True).start()
+
+    def gestionar_prioridad_emergencia(self, tid):
+        """Gestionar la prioridad de un carro de emergencia."""
+        time.sleep(5)  # Tiempo máximo permitido para cruzar
+        with self.lock:
+            if tid in self.carros:
+                print(f"⚠️ Carro de emergencia {tid} no cruzó a tiempo. Eliminando...")
+                self.canvas.delete(self.carros[tid]["rect"])
+                self.canvas.delete(self.carros[tid]["text"])
+                del self.carros[tid]
+
+    def animate(self):
+        with self.lock:
+            to_delete = []
+            for tid, carro in self.carros.items():
+                carro["x"] += carro["dx"]
+                self.canvas.coords(carro["rect"], carro["x"], carro["y"], carro["x"]+40, carro["y"]+20)
+                self.canvas.coords(carro["text"], carro["x"]+20, carro["y"]+10)
+                if carro["x"] > 850 or carro["x"] < -50:
+                    self.canvas.delete(carro["rect"])
+                    self.canvas.delete(carro["text"])
+                    to_delete.append(tid)
+            for tid in to_delete:
+                del self.carros[tid]
+        self.root.after(50, self.animate)
+
     def update_loop(self):
+        """Monitorear los hilos creados por el programa `test`."""
         while self.running:
             threads = self.list_threads()
-            print(f"Hilos detectados: {threads}")  # Depuración
             for tid, name in threads:
-                print(f"Procesando hilo: TID={tid}, Nombre={name}")  # Depuración
                 if tid not in self.carros:
                     try:
                         lado, tipo, velocidad = name.split('_')
                         velocidad = int(velocidad)
-                        print(f"Creando carro: Lado={lado}, Tipo={tipo}, Velocidad={velocidad}")  # Depuración
                         x = 0 if lado == "IZQ" else 800
-                        y = 180  # Ajustar la posición vertical de los carros
+                        y = 180
                         dx = velocidad if lado == "IZQ" else -velocidad
 
                         carro = {
@@ -191,22 +249,6 @@ class CalleApp:
                     except ValueError:
                         print(f"⚠️ Nombre de hilo inválido: {name}")
             time.sleep(1)
-
-    def animate(self):
-        with self.lock:
-            to_delete = []
-            for tid, carro in self.carros.items():
-                print(f"🔄 Actualizando carro: TID={tid}, X={carro['x']}, DX={carro['dx']}")
-                carro["x"] += carro["dx"]
-                self.canvas.coords(carro["rect"], carro["x"], carro["y"], carro["x"]+40, carro["y"]+20)
-                self.canvas.coords(carro["text"], carro["x"]+20, carro["y"]+10)
-                if carro["x"] > 850 or carro["x"] < -50:  # Ajustar límites para el nuevo tamaño
-                    self.canvas.delete(carro["rect"])
-                    self.canvas.delete(carro["text"])
-                    to_delete.append(tid)
-            for tid in to_delete:
-                del self.carros[tid]
-        self.root.after(50, self.animate)
 
     def list_threads(self):
         threads = []
