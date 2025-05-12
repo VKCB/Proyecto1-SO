@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
+#define _GNU_SOURCE
+
 
 const char* lugar_to_string(LugarInicio lugar) {
     return lugar == LUGAR_IZQUIERDA ? "Izquierda" : "Derecha";
@@ -33,13 +35,10 @@ void* car_thread(void* arg) {
            tipo_to_string(car->tipo),
            car->velocidad);
 
-    // Simula trabajo largo (mantiene el thread vivo)
-    for (int i = 0; i < 5; ++i) {  // Reducido a 5 iteraciones
-        printf("🕒 Carro %s de tipo %s sigue esperando...\n",
-               lugar_to_string(car->lugar_inicio),
-               tipo_to_string(car->tipo));
-        sleep(5);  // Reducido a 5 segundos por iteración
-    }
+    printf("🕒 Carro %s de tipo %s sigue esperando...\n",
+        lugar_to_string(car->lugar_inicio),
+        tipo_to_string(car->tipo));
+    sleep(1);  // Reducido a 5 segundos por iteración
 
     printf("✅ Carro %s de tipo %s ha cruzado\n",
            lugar_to_string(car->lugar_inicio),
@@ -49,9 +48,9 @@ void* car_thread(void* arg) {
 }
 
 int main() {
-    Car car1 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_NORMAL, .velocidad = 30.0f };
-    Car car2 = { .lugar_inicio = LUGAR_DERECHA, .tipo = TIPO_SPORT, .velocidad = 50.0f };
-    Car car3 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_PRIORITARIO, .velocidad = 40.0f };
+    Car car1 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_NORMAL, .velocidad = 2.0f };
+    Car car2 = { .lugar_inicio = LUGAR_DERECHA, .tipo = TIPO_SPORT, .velocidad = 5.0f };
+    Car car3 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_PRIORITARIO, .velocidad = 10.0f };
 
     // Crear los carros pero NO hacer join inmediatamente
     printf("Creando carros (los hilos vivirán más tiempo)\n");
@@ -61,7 +60,7 @@ int main() {
     CEthread_create(&car3, car_thread, &car3);
 
     // Espera para que el monitor pueda ver los hilos
-    sleep(1);
+    sleep(2);
 
     // Ahora sí esperamos que terminen
     CEthread_join(&car1);

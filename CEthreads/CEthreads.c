@@ -11,12 +11,9 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <errno.h>
-<<<<<<<< HEAD:CEthreads/CEthreads.c
 #include <sys/prctl.h>
 #include <string.h>
-========
 #include <limits.h> // Agregado para INT_MAX
->>>>>>>> calendarizacion:biblioteca/CEthreads.c
 
 #define STACK_SIZE (1024 * 1024) // 1MB
 
