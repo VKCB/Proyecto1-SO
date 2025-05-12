@@ -1,7 +1,7 @@
 #ifndef RR_H
 #define RR_H
 
-#include "../biblioteca/CEthreads.h"
+#include "../CEthreads/CEthreads.h"
 
 // Quantum fijo en microsegundos
 #define QUANTUM_USEC 500000

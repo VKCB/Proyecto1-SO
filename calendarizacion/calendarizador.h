@@ -1,7 +1,7 @@
 #ifndef CALENDARIZADOR_H
 #define CALENDARIZADOR_H
 
-#include "../biblioteca/CEthreads.h"
+#include "../CEthreads/CEthreads.h"
 
 typedef struct {
     int id;

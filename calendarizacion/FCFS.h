@@ -1,7 +1,7 @@
 #ifndef FCFS_H
 #define FCFS_H
 
-#include "../biblioteca/CEthreads.h"
+#include "../CEthreads/CEthreads.h"
 
 // Funciones públicas para FCFS
 void init_fcfs();

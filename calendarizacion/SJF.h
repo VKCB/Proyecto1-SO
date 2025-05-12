@@ -1,7 +1,7 @@
 #ifndef SJF_H
 #define SJF_H
 
-#include "../biblioteca/CEthreads.h"
+#include "../CEthreads/CEthreads.h"
 
 #define MAX_CARROS 100
 
