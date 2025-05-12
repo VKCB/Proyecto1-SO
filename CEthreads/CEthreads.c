@@ -11,6 +11,8 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <sys/prctl.h>
+#include <string.h>
 
 #define STACK_SIZE (1024 * 1024) // 1MB
 
@@ -24,10 +26,6 @@ static int futex_wake(volatile int *addr) {
 }
 
 // Internal wrapper to call the thread function
-#include <sys/prctl.h>
-#include <string.h>
-#include <stdio.h>  // For snprintf
-
 int CEthread_start(void* raw_args) {
     void** args = (void**)raw_args;
     void *(*start_routine)(void*) = args[0];
@@ -46,8 +44,9 @@ int CEthread_start(void* raw_args) {
         }
 
         char name[16];
-        snprintf(name, sizeof(name), "%s_%s_%.0f", side, type, car->velocidad);
+        snprintf(name, sizeof(name), "%s_%s_%d", side, type, (int)car->velocidad);
         prctl(PR_SET_NAME, name, 0, 0, 0);
+        printf("✅ Nombre del hilo configurado: %s\n", name); // Depuración
     }
 
     void* ret = start_routine(arg);
@@ -55,7 +54,6 @@ int CEthread_start(void* raw_args) {
     free(raw_args);
     return (int)(intptr_t)ret;
 }
-
 
 // Create a thread
 int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
@@ -91,6 +89,7 @@ int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
     thread->tid = tid;
     thread->stack = stack;
 
+    printf("✅ Hilo creado: TID=%d\n", tid); // Depuración
     return 0;
 }
 

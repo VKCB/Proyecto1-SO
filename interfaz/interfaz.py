@@ -1,106 +1,104 @@
-import pygame  
-import time   
+import os
+import time
+import threading
+import tkinter as tk
+import subprocess  # Importar subprocess para ejecutar el programa 'test'
 
-# Dimensiones de la ventana
-ANCHO, ALTO = 800, 400
+# === Clase principal de la interfaz ===
 
-# Diccionario que define los colores de los carros según su tipo
-COLOR_CARROS = {
-    "N": (70, 70, 200),      # azul
-    "D": (255, 140, 0),      # anaranjado
-    "E": (200, 0, 0),        # ojo
-}
+class CalleApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Calle de 1 carril - Monitor de carros")
 
-class Carro:
-    def __init__(self, lado, tipo, y_pos):
-        # Inicializamos las propiedades del carro
-        self.lado = lado  # Lado de inicio ("I" = izquierda, "D" = derecha)
-        self.tipo = tipo  # Tipo de carro ("N", "D", "E")
-        self.color = COLOR_CARROS[tipo]  # Color según el tipo
-        self.y = y_pos  # Posición vertical (carril)
-        # Posición inicial en x depende del lado
-        self.x = 0 if lado == "I" else ANCHO
-        # Velocidad según el tipo de carro
-        self.velocidad = 1 if tipo == "N" else 2 if tipo == "D" else 3
+        # Configuración del lienzo
+        self.canvas = tk.Canvas(root, width=600, height=150, bg="white")
+        self.canvas.pack()
 
-    # Método mover el carro
-    def mover(self):
-        if self.lado == "I":  
-            self.x += self.velocidad  
-        else:  
-            self.x -= self.velocidad  
+        # Dibujar la calle
+        self.canvas.create_rectangle(0, 50, 600, 100, fill="gray", outline="gray")
 
-    # Método para dibujar el carro en la ventana
-    def dibujar(self, ventana):
-        # Dibujamos un rectángulo que representa el carro
-        pygame.draw.rect(ventana, self.color, (self.x, self.y, 40, 20))
+        self.carros = {}
+        self.lock = threading.Lock()
+        self.running = True
 
-# Dibujamos la línea divisoria blanca discontinua
-def dibujar_linea_discontinua(ventana, color, x_inicio, x_fin, y, ancho_segmento, espacio):
-    x = x_inicio
-    while x < x_fin:
-        # Dibujamos un segmento de la línea
-        pygame.draw.line(ventana, color, (x, y), (x + ancho_segmento, y), 5)
-        # Dejamos un espacio entre segmentos
-        x += ancho_segmento + espacio
+        # Iniciar el programa 'test'
+        self.test_process = subprocess.Popen(
+            ["./test"],
+            cwd="/home/vale/Escritorio/ProyectoSO/Proyecto1-SO/CEthreads"
+        )
+        self.test_pid = self.test_process.pid
 
-# Función para leer los datos de los carros desde un archivo
-def leer_carros():
-    carros = []  # Lista para almacenar los carros
-    # Abrir informaciòn de los carros
-    with open("./entradas/carros.txt", "r") as f:
-        lineas = f.readlines()  # Leemos todas las líneas
-        for i, linea in enumerate(lineas):
-    
-            if linea.strip() and not linea.startswith("#"):
-                lado, tipo = linea.strip().split()  # Obtenemos lado y tipo
-                # Carril superior para carros que van hacia la derecha
-                if lado == "I":
-                    y_pos = ALTO // 2 - 30  # Ajustamos para el carril superior
-                # Carril inferior para carros que van hacia la izquierda
-                else:
-                    y_pos = ALTO // 2 + 10  # Ajustamos para el carril inferior
-                # Creamos un carro y lo añadimos a la lista
-                carros.append(Carro(lado, tipo, y_pos))
-    print(f"Carros cargados: {len(carros)}")  # Mensaje de depuración
-    return carros  # Devolvemos la lista de carros
+        # Iniciar el bucle de actualización
+        threading.Thread(target=self.update_loop, daemon=True).start()
+        self.animate()
 
-def main():
-    pygame.init()  
-    
-    ventana = pygame.display.set_mode((ANCHO, ALTO))
-    pygame.display.set_caption("Scheduling Cars")
+    def update_loop(self):
+        while self.running:
+            threads = self.list_threads()
+            for tid, name in threads:
+                print(f"🔍 Hilo detectado: TID={tid}, Nombre={name}")
+                if tid not in self.carros:
+                    try:
+                        lado, tipo, velocidad = name.split('_')
+                        velocidad = int(velocidad)
+                        print(f"🧵 Hilo válido - TID: {tid}, Lado: {lado}, Tipo: {tipo}, Velocidad: {velocidad}")
+                        x = 0 if lado == "IZQ" else 600
+                        y = 70
+                        dx = velocidad if lado == "IZQ" else -velocidad
 
-    # Cargamos los carros desde el archivo
-    carros = leer_carros()
-    reloj = pygame.time.Clock()  # Reloj para controlar los FPS
+                        carro = {
+                            "x": x,
+                            "y": y,
+                            "dx": dx,
+                            "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill="blue"),
+                            "text": self.canvas.create_text(x+20, y+10, text=tipo, fill="white")
+                        }
+                        self.carros[tid] = carro
+                    except ValueError:
+                        print(f"⚠️ Nombre de hilo inválido: {name}")
+        time.sleep(1)
 
-    corriendo = True  
-    while corriendo:
-        
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:  
-                corriendo = False  
+    def animate(self):
+        with self.lock:
+            to_delete = []
+            for tid, carro in self.carros.items():
+                print(f"🔄 Actualizando carro: TID={tid}, X={carro['x']}, DX={carro['dx']}")
+                carro["x"] += carro["dx"]
+                self.canvas.coords(carro["rect"], carro["x"], carro["y"], carro["x"]+40, carro["y"]+20)
+                self.canvas.coords(carro["text"], carro["x"]+20, carro["y"]+10)
+                if carro["x"] > 640 or carro["x"] < -50:
+                    self.canvas.delete(carro["rect"])
+                    self.canvas.delete(carro["text"])
+                    to_delete.append(tid)
+            for tid in to_delete:
+                del self.carros[tid]
+        self.root.after(50, self.animate)
 
-        # Fondo de la ventana 
-        ventana.fill((245, 245, 220))
+    def list_threads(self):
+        threads = []
+        try:
+            task_dir = f"/proc/{self.test_pid}/task"
+            for tid in os.listdir(task_dir):
+                with open(f"{task_dir}/{tid}/comm", "r") as f:
+                    name = f.read().strip()
+                    threads.append((int(tid), name))
+        except Exception as e:
+            print(f"⚠️ Error al listar hilos: {e}")
+        return threads
 
-        # Dibujamos la calle 
-        pygame.draw.rect(ventana, (180, 180, 180), (0, ALTO // 4, ANCHO, ALTO // 2))  # Calle más ancha
+    def stop(self):
+        self.running = False
+        if self.test_process:
+            self.test_process.terminate()
+            self.test_process.wait()
 
-        # Dibujamos la línea divisoria blanca discontinua
-        dibujar_linea_discontinua(ventana, (255, 255, 255), 0, ANCHO, ALTO // 2, 20, 10)
-
-        # Dibujamos y movemos los carros
-        for carro in carros:
-            carro.mover()  # Actualizamos la posición del carro
-            carro.dibujar(ventana)  # Dibujamos el carro en la ventana
-
-        pygame.display.update()  # Actualizamos la pantalla
-        reloj.tick(60)  # Limitamos a 60 FPS
-
-    pygame.quit()  
-
+# === Ejecutar interfaz ===
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = CalleApp(root)
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        app.stop()
