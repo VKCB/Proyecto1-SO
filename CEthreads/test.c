@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
-#define _GNU_SOURCE
-
 
 // Función para convertir `LugarInicio` a cadena
 const char* lugar_to_string(LugarInicio lugar) {
@@ -39,10 +37,6 @@ void* car_thread(void* arg) {
                tipo_to_string(car->tipo));
         sleep(1);  // Reducido a 1 segundo por iteración para pruebas rápidas
     }
-    printf("🕒 Carro %s de tipo %s sigue esperando...\n",
-        lugar_to_string(car->lugar_inicio),
-        tipo_to_string(car->tipo));
-    sleep(1);  // Reducido a 5 segundos por iteración
 
     printf("✅ Carro %s de tipo %s ha cruzado\n",
            lugar_to_string(car->lugar_inicio),
@@ -56,9 +50,6 @@ int main() {
     Car car1 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_NORMAL, .velocidad = 30.0f };
     Car car2 = { .lugar_inicio = LUGAR_DERECHA, .tipo = TIPO_SPORT, .velocidad = 50.0f };
     Car car3 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_PRIORITARIO, .velocidad = 40.0f };
-    Car car1 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_NORMAL, .velocidad = 2.0f };
-    Car car2 = { .lugar_inicio = LUGAR_DERECHA, .tipo = TIPO_SPORT, .velocidad = 5.0f };
-    Car car3 = { .lugar_inicio = LUGAR_IZQUIERDA, .tipo = TIPO_PRIORITARIO, .velocidad = 10.0f };
 
     // Crear los carros pero NO hacer join inmediatamente
     printf("Creando carros (los hilos vivirán más tiempo)\n");
