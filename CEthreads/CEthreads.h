@@ -20,13 +20,13 @@ typedef enum {
 
 // Mutex personalizado
 typedef struct {
-    volatile int locked;
+    volatile int locked;  // Estado del mutex (0 = desbloqueado, 1 = bloqueado)
 } CEMutex;
 
 // Condición personalizada
 typedef struct {
-    int estado;       // Estado de la condición (0: no señalada, 1: señalada)
-    int waiting;      // Número de hilos esperando
+    volatile int estado;  // Estado de la condición (0 = no señalada, 1 = señalada)
+    volatile int waiting; // Número de hilos esperando
 } CECond;
 
 // Car structure

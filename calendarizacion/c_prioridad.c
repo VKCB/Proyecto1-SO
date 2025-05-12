@@ -1,6 +1,7 @@
 #include "calendarizador.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "../CEthreads/CEthreads.h"
 
 #define MAX_COLA 100
 

@@ -26,10 +26,6 @@ static int futex_wake(volatile int *addr) {
     return syscall(SYS_futex, addr, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
-static int futex_wake_all(volatile int *addr) {
-    return syscall(SYS_futex, addr, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
-}
-
 // Internal wrapper to call the thread function
 int CEthread_start(void* raw_args) {
     void** args = (void**)raw_args;
@@ -51,7 +47,7 @@ int CEthread_start(void* raw_args) {
         char name[16];
         snprintf(name, sizeof(name), "%s_%s_%d", side, type, (int)car->velocidad);
         prctl(PR_SET_NAME, name, 0, 0, 0);
-        printf("✅ Nombre del hilo configurado: %s\n", name); // Depuración
+        printf("Nombre del hilo configurado: %s\n", name); // Depuración
     }
 
     void* ret = start_routine(arg);
@@ -94,11 +90,11 @@ int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
     thread->tid = tid;
     thread->stack = stack;
 
-    printf("✅ Hilo creado: TID=%d\n", tid); // Depuración
+    printf("✅ Hilo creado: TID=%d\n", tid);
     return 0;
 }
 
-// Wait for a thread to complete
+
 int CEthread_join(Car* thread) {
     while (thread->done == 0) {
         futex_wait(&thread->done, 0);
@@ -109,13 +105,13 @@ int CEthread_join(Car* thread) {
 
 int CEmutex_init(CEMutex* mutex) {
     if (mutex == NULL) return -1;
-    mutex->locked = 0; // Initially unlocked
+    mutex->locked = 0; 
     return 0;
 }
 
 int CEmutex_destroy(CEMutex* mutex) {
     if (mutex == NULL) return -1;
-    // Nothing special to do, just set it to 0
+    
     mutex->locked = 0;
     return 0;
 }
@@ -146,46 +142,42 @@ void CEthread_exit(void) {
     _exit(0);
 }
 
-// Inicializa una condición
 void CECond_init(CECond* cond) {
+    if (cond == NULL) return;
     cond->estado = 0;  // Inicialmente no señalada
-    cond->waiting = 0; // No hay hilos esperando
+    cond->waiting = 0; // Ningún hilo esperando
 }
 
-// Espera a que la condición sea señalada
 void CECond_wait(CECond* cond, CEMutex* mutex) {
-    // Incrementa el contador de hilos esperando
-    __sync_fetch_and_add(&cond->waiting, 1);
+    if (cond == NULL || mutex == NULL) return;
 
-    // Libera el mutex externo
-    CEmutex_unlock(mutex);
+    cond->waiting++;  // Incrementar el contador de hilos esperando
+    CEmutex_unlock(mutex);  // Liberar el mutex mientras espera
 
-    // Espera mientras la condición no esté señalada
+    // Esperar hasta que la condición sea señalada
     while (cond->estado == 0) {
         futex_wait(&cond->estado, 0);
     }
 
-    // Restablece el estado de la condición si no hay más hilos esperando
-    if (__sync_sub_and_fetch(&cond->waiting, 1) == 0) {
-        cond->estado = 0;
-    }
-
-    // Vuelve a bloquear el mutex externo
-    CEmutex_lock(mutex);
+    cond->waiting--;  // Decrementar el contador de hilos esperando
+    cond->estado = 0; // Restablecer el estado de la condición
+    CEmutex_lock(mutex);  // Volver a adquirir el mutex
 }
 
-// Señala una condición (despierta un hilo)
 void CECond_signal(CECond* cond) {
+    if (cond == NULL) return;
+
     if (cond->waiting > 0) {
-        cond->estado = 1;  // Señala la condición
-        futex_wake(&cond->estado);  // Despierta un hilo
+        cond->estado = 1;  // Señalar la condición
+        futex_wake(&cond->estado);  // Despertar un hilo esperando
     }
 }
 
-// Señala una condición (despierta todos los hilos)
 void CECond_broadcast(CECond* cond) {
+    if (cond == NULL) return;
+
     if (cond->waiting > 0) {
-        cond->estado = 1;  // Señala la condición
-        futex_wake_all(&cond->estado);  // Despierta todos los hilos
+        cond->estado = 1;  // Señalar la condición
+        futex_wake(&cond->estado);  // Despertar a todos los hilos esperando
     }
 }
