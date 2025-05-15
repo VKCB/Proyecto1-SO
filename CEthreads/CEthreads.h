@@ -8,7 +8,8 @@
 // Start side
 typedef enum {
     LUGAR_IZQUIERDA,
-    LUGAR_DERECHA
+    LUGAR_DERECHA,
+    LUGAR_INICIO
 } LugarInicio;
 
 // Car type
