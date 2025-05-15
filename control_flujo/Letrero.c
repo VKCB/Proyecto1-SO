@@ -21,7 +21,7 @@ void iniciar_control() {
 
 
 void* controlador_letrero(void* arg) {
-    sleep(3);  // Esperar fase INICIO
+    sleep(0.5);  // Esperar fase INICIO
     CEmutex_lock(&mutex_control);
     lado_actual = LUGAR_IZQUIERDA;
     tiempo_restante_turno = INTERVALO_TURNO;

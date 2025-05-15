@@ -32,6 +32,8 @@ typedef struct {
 // Car structure
 typedef struct {
     pid_t tid;           // Thread ID
+    int activo; // 1 = activo, 0 = terminado
+    int id;
     void* stack;         // Stack memory
     volatile int done;   // For futex
     LugarInicio lugar_inicio; // Side (left/right)

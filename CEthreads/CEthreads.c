@@ -1,5 +1,3 @@
-// CEthreads.c
-
 #define _GNU_SOURCE
 #include "CEthreads.h"
 #include <sched.h>
@@ -13,10 +11,9 @@
 #include <errno.h>
 #include <sys/prctl.h>
 #include <string.h>
-#include <limits.h> // Agregado para INT_MAX
+#include <limits.h>
 
 #define STACK_SIZE (1024 * 1024) // 1MB
-
 
 static int futex_wait(volatile int *addr, int expected) {
     return syscall(SYS_futex, addr, FUTEX_WAIT, expected, NULL, NULL, 0);
@@ -25,7 +22,6 @@ static int futex_wait(volatile int *addr, int expected) {
 static int futex_wake(volatile int *addr) {
     return syscall(SYS_futex, addr, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
-
 
 int CEthread_start(void* raw_args) {
     void** args = (void**)raw_args;
@@ -47,15 +43,14 @@ int CEthread_start(void* raw_args) {
         char name[16];
         snprintf(name, sizeof(name), "%s_%s_%d", side, type, (int)car->velocidad);
         prctl(PR_SET_NAME, name, 0, 0, 0);
-        printf("Nombre del hilo configurado: %s\n", name); 
     }
 
     void* ret = start_routine(arg);
     thread->done = 1;
+    futex_wake(&thread->done); // Wake up thread that is waiting in CEthread_join
     free(raw_args);
     return (int)(intptr_t)ret;
 }
-
 
 int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
     void* stack = malloc(STACK_SIZE);
@@ -94,7 +89,6 @@ int CEthread_create(Car* thread, void *(*start_routine)(void*), void* arg) {
     return 0;
 }
 
-
 int CEthread_join(Car* thread) {
     while (thread->done == 0) {
         futex_wait(&thread->done, 0);
@@ -111,65 +105,56 @@ int CEmutex_init(CEMutex* mutex) {
 
 int CEmutex_destroy(CEMutex* mutex) {
     if (mutex == NULL) return -1;
-    
     mutex->locked = 0;
     return 0;
 }
 
 int CEmutex_lock(CEMutex* mutex) {
     if (mutex == NULL) return -1;
-
     while (__sync_lock_test_and_set(&mutex->locked, 1)) {
-        
         futex_wait(&mutex->locked, 1);
     }
     return 0;
 }
 
-
 int CEmutex_unlock(CEMutex* mutex) {
     if (mutex == NULL) return -1;
-
     mutex->locked = 0;       
     futex_wake(&mutex->locked);  
-    
     return 0;
 }
 
-
-// Exit thread
 void CEthread_exit(void) {
     _exit(0);
 }
 
 void CECond_init(CECond* cond) {
     if (cond == NULL) return;
-    cond->estado = 0;  // Inicialmente no señalada
-    cond->waiting = 0; // Ningún hilo esperando
+    cond->estado = 0;  
+    cond->waiting = 0; 
 }
 
 void CECond_wait(CECond* cond, CEMutex* mutex) {
     if (cond == NULL || mutex == NULL) return;
 
-    cond->waiting++;  // Incrementar el contador de hilos esperando
-    CEmutex_unlock(mutex);  // Liberar el mutex mientras espera
+    cond->waiting++;
+    CEmutex_unlock(mutex);  
 
-    // Esperar hasta que la condición sea señalada
     while (cond->estado == 0) {
         futex_wait(&cond->estado, 0);
     }
 
-    cond->waiting--;  // Decrementar el contador de hilos esperando
-    cond->estado = 0; // Restablecer el estado de la condición
-    CEmutex_lock(mutex);  // Volver a adquirir el mutex
+    cond->waiting--;
+    cond->estado = 0; 
+    CEmutex_lock(mutex);  
 }
 
 void CECond_signal(CECond* cond) {
     if (cond == NULL) return;
 
     if (cond->waiting > 0) {
-        cond->estado = 1;  // Señalar la condición
-        futex_wake(&cond->estado);  // Despertar un hilo esperando
+        cond->estado = 1;  
+        futex_wake(&cond->estado);  
     }
 }
 
@@ -177,7 +162,7 @@ void CECond_broadcast(CECond* cond) {
     if (cond == NULL) return;
 
     if (cond->waiting > 0) {
-        cond->estado = 1;  // Señalar la condición
-        futex_wake(&cond->estado);  // Despertar a todos los hilos esperando
+        cond->estado = 1;  
+        futex_wake(&cond->estado);  
     }
 }

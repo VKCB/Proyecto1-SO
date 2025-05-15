@@ -5,6 +5,41 @@ import tkinter as tk
 from tkinter import ttk
 import subprocess
 
+from ctypes import *
+import ctypes 
+
+
+lib = CDLL("./libsimulacion.so")
+
+
+
+class Car(Structure):
+    _fields_ = [("lugar_inicio", c_int),
+                ("tipo", c_int),
+                ("velocidad", c_float),
+                ("tid", c_ulong)]  # Ajusta esto según la definición exacta en C
+    
+c_lado = "IZQ"  # Lado del carro, puedes modificarlo según sea necesario
+tipo = "deportivo"  # Tipo de carro, este es un ejemplo
+dx = 10.0  # Por ejemplo, la velocidad
+    
+lib.crear_carro_desde_python(c_lado.encode('utf-8'), tipo.encode('utf-8'), ctypes.c_float(abs(dx)))
+# Define la función
+lib.crear_carro.argtypes = [c_char_p, c_char_p, c_float]
+lib.crear_carro.restype = Car
+lib.controlador_letrero_equidad.argtypes = [c_void_p]
+lib.controlador_letrero_equidad.restype = c_void_p
+
+lib.crear_hilo_carro.argtypes = [POINTER(Car)]
+lib.esperar_carro.argtypes = [POINTER(Car)]
+
+# Crear un carro desde Python
+#carro = lib.crear_carro(b"izquierda", b"sport", 50.0)
+
+# Pasarlo por referencia
+#lib.crear_hilo_carro(byref(carro))
+#lib.esperar_carro(byref(carro))
+
 # === Pantalla de selección de algoritmo ===
 
 class SeleccionAlgoritmoApp:
@@ -204,18 +239,19 @@ class CalleApp:
                 self.tipo_carro_actual = (self.tipo_carro_actual + 1) % len(self.tipos_carros)
             else:
                 tipo_carro = next(tc for tc in self.tipos_carros if tc["tipo"] == tipo)
+            
             color = tipo_carro["color"]
-
             fila_step = 30
             calle_y = 180
 
             if lado == "IZQ":
-                fila_y = 150 - fila_step  # Justo arriba de la calle
+                fila_y = 150 - fila_step
                 carros_en_fila = [c for c in self.carros.values() if c["lado"] == "IZQ" and c["estado"] == "esperando"]
                 pos = pos_fila if pos_fila is not None else len(carros_en_fila)
                 y = fila_y - pos * fila_step
                 x = 0
                 dx = tipo_carro["velocidad"]
+                c_lado = 0  # LUGAR_IZQUIERDA
             elif lado == "DER":
                 fila_y = 270
                 carros_en_fila = [c for c in self.carros.values() if c["lado"] == "DER" and c["estado"] == "esperando"]
@@ -223,6 +259,7 @@ class CalleApp:
                 y = fila_y + pos * fila_step
                 x = 760
                 dx = -tipo_carro["velocidad"]
+                c_lado = 1  # LUGAR_DERECHA
             else:
                 print(f"Lado inválido: {lado}")
                 return
@@ -234,12 +271,15 @@ class CalleApp:
             else:
                 estado = "esperando"
 
+            tiempo_cruce = 800 / abs(dx)  # Suponiendo que la calle tiene 800 píxeles de largo
+
             carro = {
                 "x": x,
                 "y": y,
                 "dx": dx,
-                "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill=color),
-                "text": self.canvas.create_text(x+20, y+10, text=str(extra) if extra is not None else "", fill="white"),
+                "tiempo_cruce": tiempo_cruce,  # Añadir el tiempo de cruce
+                "rect": self.canvas.create_rectangle(x, y, x + 40, y + 20, fill=color),
+                "text": self.canvas.create_text(x + 20, y + 10, text=str(extra) if extra is not None else "", fill="white"),
                 "tipo": tipo,
                 "lado": lado,
                 "extra": extra,
@@ -249,7 +289,10 @@ class CalleApp:
             tid = threading.get_ident() + len(self.carros)
             self.carros[tid] = carro
 
-            print(f" Carro generado: Lado={lado}, Tipo={tipo}, Extra={extra}, Estado={estado}, ID={tid}")
+            # 👉 Llama a la función en C para crear el hilo
+            lib.crear_carro_desde_python(c_lado, tipo, c_float(abs(dx)))
+
+            print(f"Carro generado: Lado={lado}, Tipo={tipo}, Extra={extra}, Estado={estado}, ID={tid}")
 
     def animate(self):
         with self.lock:
@@ -297,12 +340,22 @@ class CalleApp:
 
     def update_loop(self):
         while self.running:
-            threads = self.list_threads()
+            # This part calls the C function to get the list of active threads (cars)
+            threads = self.list_threads()  # You'll need to implement `list_threads` properly.
+            
+            # Iterate over the threads and simulate each car's movement
             for tid, name in threads:
                 if tid not in self.carros:
                     try:
-                        lado, tipo, velocidad = name.split('_')
+                        # Verifica que 'name' tenga al menos 3 partes al separar por '_'
+                        name_parts = name.split('_')
+                        if len(name_parts) != 3:
+                            #print(f"Error: nombre de hilo {name} no tiene el formato esperado")
+                            continue  # Salta este hilo si no tiene el formato adecuado
+
+                        lado, tipo, velocidad = name_parts
                         velocidad = int(velocidad)
+                        
                         if lado == "IZQ":
                             x = 0
                             dx = velocidad
@@ -311,22 +364,28 @@ class CalleApp:
                             dx = -velocidad
                         else:
                             continue
+                        
                         y = 180
                         color = "blue"
                         for tc in self.tipos_carros:
                             if tc["tipo"] == tipo:
                                 color = tc["color"]
+
                         carro = {
                             "x": x,
                             "y": y,
                             "dx": dx,
-                            "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill=color),
-                            "text": self.canvas.create_text(x+20, y+10, text=tipo, fill="white")
+                            "rect": self.canvas.create_rectangle(x, y, x + 40, y + 20, fill=color),
+                            "text": self.canvas.create_text(x + 20, y + 10, text=name, fill="white"),
+                            "tipo": tipo,
+                            "lado": lado,
+                            "estado": "esperando"
                         }
                         self.carros[tid] = carro
-                    except ValueError:
-                        print(f" Nombre de hilo inválido: {name}")
-            time.sleep(1)
+                    except Exception as e:
+                        print(f"Error creating car from thread {tid}: {e}")
+            time.sleep(0.05)  # Wait for the next update cycle
+
 
     def list_threads(self):
         threads = []
@@ -428,6 +487,7 @@ def compilar_algoritmos():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     carpeta_calendarizacion = os.path.join(base_dir, "../calendarizacion")
     carpeta_ce = os.path.join(base_dir, "../CEthreads")
+    carpeta_flujo = os.path.join(base_dir, "../control_flujo")
 
     print(" Compilando el programa de prueba y algoritmos...")
     try:
@@ -439,6 +499,8 @@ def compilar_algoritmos():
             os.path.join(carpeta_calendarizacion, "c_prioridad.c"),
             os.path.join(carpeta_calendarizacion, "c_tiempo_real.c"),
             os.path.join(carpeta_ce, "CEthreads.c"),
+            os.path.join(carpeta_flujo, "Equidad.c"),
+            os.path.join(carpeta_flujo, "Letrero.c"),
             os.path.join(carpeta_ce, "test.c"),
             "-o",
             os.path.join(carpeta_ce, "test"),

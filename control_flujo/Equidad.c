@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define LONGITUD_CALLE 0.010  // en km
+#define LONGITUD_CALLE 0.100  // en km
 #define VALOR_W 3             // Cantidad de carros por turno
 #define ESPERA_SIN_CARROS_MS 2000  // Espera máxima si no hay carros (en ms)
 
