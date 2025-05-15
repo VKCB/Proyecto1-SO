@@ -84,7 +84,10 @@ void fcfs_exec() {
     printf("[FCFS] Todos los carros han sido procesados.\n");
 }
 
-
+// Ordena una fila de carros por orden de llegada (no hace nada, pero mantiene la interfaz)
+void ordenar_por_fcfs(Car* fila, int count) {
+    // FCFS no requiere ordenamiento, función vacía para la interfaz
+}
 
 void fcfs_salir(Car* carro) {
     init_fcfs();

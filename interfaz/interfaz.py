@@ -11,16 +11,11 @@ class SeleccionAlgoritmoApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Seleccionar Algoritmo de Calendarización")
-
-        # Configurar tamaño y centrar la ventana
         self.root.geometry("800x400")
-        self.root.resizable(False, False)  # Evitar redimensionar
+        self.root.resizable(False, False)
         self.center_window(self.root)
-
-        # Cambiar el color de fondo
         self.root.configure(bg="#f0f0f0")
 
-        # Etiqueta de instrucción
         tk.Label(
             root,
             text="Seleccione el algoritmo de calendarización:",
@@ -28,7 +23,6 @@ class SeleccionAlgoritmoApp:
             bg="#f0f0f0"
         ).pack(pady=20)
 
-        # Lista de algoritmos
         self.algoritmo = tk.StringVar(value="RR")
         opciones = ["RR", "Prioridad", "SJF", "FCFS", "Tiempo real"]
         self.combo = ttk.Combobox(
@@ -40,7 +34,6 @@ class SeleccionAlgoritmoApp:
         )
         self.combo.pack(pady=20)
 
-        # Botón para continuar
         tk.Button(
             root,
             text="Continuar",
@@ -50,14 +43,10 @@ class SeleccionAlgoritmoApp:
             command=self.continuar
         ).pack(pady=20)
 
-        # Vincular la tecla 'w' para cerrar la ventana
         self.root.bind("<w>", self.close_program)
-
-        # Configurar el cierre al presionar 'x'
         self.root.protocol("WM_DELETE_WINDOW", self.close_program)
 
     def center_window(self, window):
-        """Centrar la ventana en la pantalla."""
         window.update_idletasks()
         width = window.winfo_width()
         height = window.winfo_height()
@@ -67,13 +56,10 @@ class SeleccionAlgoritmoApp:
 
     def continuar(self):
         algoritmo = self.algoritmo.get()
-        self.root.destroy()  # Cerrar la ventana actual
-
-        # Solicitar parámetros para todos los algoritmos
+        self.root.destroy()
         self.solicitar_parametro(algoritmo, "Ingrese los parámetros:")
 
     def solicitar_parametro(self, algoritmo, mensaje):
-        # Crear una nueva ventana para solicitar los parámetros
         parametro_root = tk.Tk()
         parametro_root.title(f"Parámetros para {algoritmo}")
         parametro_root.geometry("800x400")
@@ -81,27 +67,46 @@ class SeleccionAlgoritmoApp:
 
         tk.Label(parametro_root, text=mensaje, font=("Arial", 14)).pack(pady=10)
 
-        # Campo para autos de izquierda a derecha
         tk.Label(parametro_root, text="Autos de izquierda a derecha:", font=("Arial", 12)).pack(pady=5)
         izquierda_entry = tk.Entry(parametro_root, font=("Arial", 12))
         izquierda_entry.pack(pady=5)
 
-        # Campo para autos de derecha a izquierda
         tk.Label(parametro_root, text="Autos de derecha a izquierda:", font=("Arial", 12)).pack(pady=5)
         derecha_entry = tk.Entry(parametro_root, font=("Arial", 12))
         derecha_entry.pack(pady=5)
 
+        tipos = ["Normal", "Deportivo", "Emergencia"]
+        prioridad_vars = {}
+
+        if algoritmo == "Prioridad":
+            tk.Label(parametro_root, text="Seleccione la prioridad única para cada tipo (1=menor, 3=mayor):", font=("Arial", 12)).pack(pady=10)
+            frame_prioridad = tk.Frame(parametro_root)
+            frame_prioridad.pack(pady=5)
+            opciones = ["1", "2", "3"]
+            for tipo in tipos:
+                tk.Label(frame_prioridad, text=tipo, font=("Arial", 12)).pack(side=tk.LEFT, padx=5)
+                var = tk.StringVar(value=opciones[tipos.index(tipo)])
+                combo = ttk.Combobox(frame_prioridad, values=opciones, textvariable=var, state="readonly", width=3, font=("Arial", 12))
+                combo.pack(side=tk.LEFT, padx=10)
+                prioridad_vars[tipo] = var
+
         def continuar_con_parametros():
             izquierda = izquierda_entry.get()
             derecha = derecha_entry.get()
-
-            # Validar que ambos campos sean números enteros no negativos
             if not izquierda.isdigit() or not derecha.isdigit():
                 tk.Label(parametro_root, text="Ambos valores deben ser números enteros positivos.", fg="red").pack()
                 return
 
-            # Combinar los valores en el formato esperado
-            parametro = f"{izquierda},{derecha}"
+            if algoritmo == "Prioridad":
+                prioridades = [prioridad_vars[tipo].get() for tipo in tipos]
+                extra = ",".join(prioridades)
+                if len(set(prioridades)) != 3:
+                    tk.Label(parametro_root, text="Cada tipo debe tener una prioridad diferente (1, 2 y 3).", fg="red").pack()
+                    return
+                parametro = f"{izquierda},{derecha},{extra}"
+            else:
+                parametro = f"{izquierda},{derecha}"
+
             parametro_root.destroy()
             iniciar_calle(algoritmo, parametro)
 
@@ -114,18 +119,12 @@ class SeleccionAlgoritmoApp:
             command=continuar_con_parametros
         ).pack(pady=20)
 
-        
-        self.root.bind("<w>", self.close_program)
-
-        
         parametro_root.protocol("WM_DELETE_WINDOW", parametro_root.destroy)
         parametro_root.mainloop()
 
     def close_program(self, event=None):
-        """Cerrar la ventana principal."""
         print("Cerrando la ventana principal...")
         self.root.destroy()
-
 
 # === Clase principal de la interfaz ===
 
@@ -133,17 +132,25 @@ class CalleApp:
     def __init__(self, root, algoritmo, parametro):
         self.root = root
         self.root.title(f"Scheduling Cars- Algoritmo: {algoritmo}")
-
-        # Configurar tamaño y centrar la ventana
         self.root.geometry("800x400")
         self.root.resizable(False, False)
         self.center_window(self.root)
 
-        # Configuración del lienzo
         self.canvas = tk.Canvas(root, width=800, height=400, bg="white")
         self.canvas.pack()
 
-        # Dibujar la calle
+        # --- Botón para volver al menú ---
+        self.boton_volver = tk.Button(
+            root,
+            text="Volver al menú",
+            font=("Arial", 12, "bold"),
+            bg="#2196f3",
+            fg="white",
+            command=self.volver_al_menu
+        )
+        self.boton_volver.place(x=650, y=20, width=130, height=35)
+        # ----------------------------------
+
         self.canvas.create_rectangle(0, 150, 800, 250, fill="gray", outline="gray")
 
         self.carros = {}
@@ -151,31 +158,24 @@ class CalleApp:
         self.running = True
         self.algoritmo = algoritmo
         self.parametro = parametro
-        self.tipo_carro_actual = 0  # Para intercalar tipos de carros
-        self.test_process = None  # Inicializar el atributo test_process
+        self.tipo_carro_actual = 0
+        self.test_process = None
 
-        # Tipos de carros y sus propiedades
         self.tipos_carros = [
             {"tipo": "Normal", "velocidad": 5, "color": "blue"},
             {"tipo": "Deportivo", "velocidad": 10, "color": "red"},
             {"tipo": "Emergencia", "velocidad": 15, "color": "yellow"}
         ]
 
-        # Vincular teclas para generar carros
-        self.root.bind("<o>", lambda e: self.generar_carro("IZQ"))  # Tecla 'O' para la izquierda
-        self.root.bind("<p>", lambda e: self.generar_carro("DER"))  # Tecla 'P' para la derecha
-
-        
+        self.root.bind("<o>", lambda e: self.generar_carro("IZQ"))
+        self.root.bind("<p>", lambda e: self.generar_carro("DER"))
         self.root.protocol("WM_DELETE_WINDOW", self.close_program)
-            
         self.root.bind("<w>", self.close_program)
 
-        # Iniciar el bucle de actualización
         threading.Thread(target=self.update_loop, daemon=True).start()
         self.animate()
 
     def center_window(self, window):
-        """Centrar la ventana en la pantalla."""
         window.update_idletasks()
         width = window.winfo_width()
         height = window.winfo_height()
@@ -184,86 +184,118 @@ class CalleApp:
         window.geometry(f"{width}x{height}+{x}+{y}")
 
     def close_program(self, event=None):
-        """Cerrar el programa al presionar la tecla 'w' o el botón 'x'."""
         print("Cerrando el programa...")
         self.stop()
         self.root.destroy()
 
-    def generar_carro(self, lado):
-        """Generar un nuevo carro desde el lado especificado."""
-        with self.lock:
-            tipo_carro = self.tipos_carros[self.tipo_carro_actual]
-            self.tipo_carro_actual = (self.tipo_carro_actual + 1) % len(self.tipos_carros)
+    def volver_al_menu(self):
+        self.stop()
+        self.root.destroy()
+        # Volver a mostrar el menú inicial
+        root_menu = tk.Tk()
+        app_menu = SeleccionAlgoritmoApp(root_menu)
+        root_menu.mainloop()
 
-            # Configurar posición inicial y dirección
+    def generar_carro(self, lado, extra=None, pos_fila=None, tipo=None):
+        with self.lock:
+            if tipo is None:
+                tipo_carro = self.tipos_carros[self.tipo_carro_actual]
+                tipo = tipo_carro["tipo"]
+                self.tipo_carro_actual = (self.tipo_carro_actual + 1) % len(self.tipos_carros)
+            else:
+                tipo_carro = next(tc for tc in self.tipos_carros if tc["tipo"] == tipo)
+            color = tipo_carro["color"]
+
+            fila_step = 30
+            calle_y = 180
+
             if lado == "IZQ":
-                x = 50 + len([c for c in self.carros.values() if c["lado"] == "IZQ"]) * 50  # Fila izquierda
-                dx = tipo_carro["velocidad"]  # Velocidad positiva
+                fila_y = 150 - fila_step  # Justo arriba de la calle
+                carros_en_fila = [c for c in self.carros.values() if c["lado"] == "IZQ" and c["estado"] == "esperando"]
+                pos = pos_fila if pos_fila is not None else len(carros_en_fila)
+                y = fila_y - pos * fila_step
+                x = 0
+                dx = tipo_carro["velocidad"]
             elif lado == "DER":
-                x = 750 - len([c for c in self.carros.values() if c["lado"] == "DER"]) * 50  # Fila derecha
-                dx = -tipo_carro["velocidad"]  # Velocidad negativa
+                fila_y = 270
+                carros_en_fila = [c for c in self.carros.values() if c["lado"] == "DER" and c["estado"] == "esperando"]
+                pos = pos_fila if pos_fila is not None else len(carros_en_fila)
+                y = fila_y + pos * fila_step
+                x = 760
+                dx = -tipo_carro["velocidad"]
             else:
                 print(f"Lado inválido: {lado}")
-                return  # Lado inválido, no hacer nada
+                return
 
-            y = 200  # Posición vertical fija
+            carros_cruzando = [c for c in self.carros.values() if c["lado"] == lado and c["estado"] == "cruzando"]
+            if not carros_cruzando and pos == 0:
+                estado = "cruzando"
+                y = calle_y
+            else:
+                estado = "esperando"
 
-            # Crear el carro
             carro = {
                 "x": x,
                 "y": y,
                 "dx": dx,
-                "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill=tipo_carro["color"]),
-                "text": self.canvas.create_text(x+20, y+10, fill="white"),
-                "tipo": tipo_carro["tipo"],
-                "lado": lado
+                "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill=color),
+                "text": self.canvas.create_text(x+20, y+10, text=str(extra) if extra is not None else "", fill="white"),
+                "tipo": tipo,
+                "lado": lado,
+                "extra": extra,
+                "estado": estado
             }
 
-            # Generar un identificador único para el carro
             tid = threading.get_ident() + len(self.carros)
             self.carros[tid] = carro
 
-            print(f" Carro generado: Lado={lado}, Tipo={tipo_carro['tipo']}, Velocidad={dx}, ID={tid}")
-
-    def gestionar_prioridad_emergencia(self, tid):
-        """Gestionar la prioridad de un carro de emergencia."""
-        time.sleep(5)  # Tiempo máximo permitido para cruzar
-        with self.lock:
-            if tid in self.carros:
-                print(f"Carro de emergencia {tid} no cruzó a tiempo. Eliminando...")
-                self.canvas.delete(self.carros[tid]["rect"])
-                self.canvas.delete(self.carros[tid]["text"])
-                del self.carros[tid]
+            print(f" Carro generado: Lado={lado}, Tipo={tipo}, Extra={extra}, Estado={estado}, ID={tid}")
 
     def animate(self):
-        """Mover los carros en la carretera."""
         with self.lock:
             to_delete = []
-            for tid, carro in self.carros.items():
-                # Si el carro está en la fila, no lo muevas hasta que sea su turno
-                if carro["lado"] == "IZQ" and carro["x"] < 100:
+            for lado in ["IZQ", "DER"]:
+                carros_lado = [ (tid, c) for tid, c in self.carros.items() if c["lado"] == lado ]
+                if not carros_lado:
                     continue
-                if carro["lado"] == "DER" and carro["x"] > 700:
-                    continue
-
-                # Mover el carro
-                carro["x"] += carro["dx"]
-                self.canvas.coords(carro["rect"], carro["x"], carro["y"], carro["x"]+40, carro["y"]+20)
-                self.canvas.coords(carro["text"], carro["x"]+20, carro["y"]+10)
-
-                # Eliminar el carro si sale de la pantalla
-                if carro["x"] > 850 or carro["x"] < -50:
-                    self.canvas.delete(carro["rect"])
-                    self.canvas.delete(carro["text"])
-                    to_delete.append(tid)
+                for idx, (tid, carro) in enumerate(sorted(carros_lado, key=lambda x: x[1]["y"])):
+                    if carro["estado"] == "cruzando":
+                        if carro["y"] != 180:
+                            carro["y"] = 180
+                            self.canvas.coords(carro["rect"], carro["x"], carro["y"], carro["x"]+40, carro["y"]+20)
+                            self.canvas.coords(carro["text"], carro["x"]+20, carro["y"]+10)
+                        carro["x"] += carro["dx"]
+                        self.canvas.coords(carro["rect"], carro["x"], carro["y"], carro["x"]+40, carro["y"]+20)
+                        self.canvas.coords(carro["text"], carro["x"]+20, carro["y"]+10)
+                        if carro["x"] > 850 or carro["x"] < -50:
+                            self.canvas.delete(carro["rect"])
+                            self.canvas.delete(carro["text"])
+                            to_delete.append(tid)
+                            esperando = [ (tid2, c2) for tid2, c2 in sorted(carros_lado, key=lambda x: x[1]["y"]) if c2["estado"] == "esperando" ]
+                            if esperando:
+                                siguiente_tid, siguiente_carro = esperando[0]
+                                siguiente_carro["estado"] = "cruzando"
+                                siguiente_carro["y"] = 180
+                                self.canvas.coords(siguiente_carro["rect"], siguiente_carro["x"], siguiente_carro["y"], siguiente_carro["x"]+40, siguiente_carro["y"]+20)
+                                self.canvas.coords(siguiente_carro["text"], siguiente_carro["x"]+20, siguiente_carro["y"]+10)
+                            # --- Mueve hacia adelante los que estaban esperando detrás ---
+                            fila_y = 40 if lado == "IZQ" else 270
+                            fila_step = 30
+                            # Solo los que están esperando y tienen y > que el que salió
+                            for tid2, c2 in esperando[1:]:
+                                old_y = c2["y"]
+                                c2["y"] -= fila_step
+                                self.canvas.coords(c2["rect"], c2["x"], c2["y"], c2["x"]+40, c2["y"]+20)
+                                self.canvas.coords(c2["text"], c2["x"]+20, c2["y"]+10)
+                        break
 
             for tid in to_delete:
                 del self.carros[tid]
 
-        self.root.after(50, self.animate)
+        if self.running and self.root.winfo_exists():
+            self.root.after(50, self.animate)
 
     def update_loop(self):
-        """Monitorear los hilos creados por el programa `test`."""
         while self.running:
             threads = self.list_threads()
             for tid, name in threads:
@@ -272,21 +304,23 @@ class CalleApp:
                         lado, tipo, velocidad = name.split('_')
                         velocidad = int(velocidad)
                         if lado == "IZQ":
-                            x = 0  # Posición inicial para izquierda a derecha
-                            dx = velocidad  # Velocidad positiva
+                            x = 0
+                            dx = velocidad
                         elif lado == "DER":
-                            x = 800  # Posición inicial para derecha a izquierda
-                            dx = -velocidad  # Velocidad negativa
+                            x = 800
+                            dx = -velocidad
                         else:
-                            continue  
-
-                        y = 180  
-
+                            continue
+                        y = 180
+                        color = "blue"
+                        for tc in self.tipos_carros:
+                            if tc["tipo"] == tipo:
+                                color = tc["color"]
                         carro = {
                             "x": x,
                             "y": y,
                             "dx": dx,
-                            "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill="blue"),
+                            "rect": self.canvas.create_rectangle(x, y, x+40, y+20, fill=color),
                             "text": self.canvas.create_text(x+20, y+10, text=tipo, fill="white")
                         }
                         self.carros[tid] = carro
@@ -296,6 +330,8 @@ class CalleApp:
 
     def list_threads(self):
         threads = []
+        if not hasattr(self, "test_pid"):
+            return threads
         try:
             task_dir = f"/proc/{self.test_pid}/task"
             for tid in os.listdir(task_dir):
@@ -312,81 +348,105 @@ class CalleApp:
             self.test_process.terminate()
             self.test_process.wait()
 
-
 # === Función para iniciar la calle ===
 
 def iniciar_calle(algoritmo, parametro):
-    
     base_dir = os.path.dirname(os.path.abspath(__file__))
     ejecutable_path = os.path.join(base_dir, "../CEthreads/test")
     ruta_ce = os.path.join(base_dir, "../CEthreads")
 
-    # Verificar si el ejecutable test existe
     if not os.path.exists(ejecutable_path):
         print(f" El ejecutable 'test' no existe. Asegúrate de compilarlo.")
         return
 
-    # Crear la ventana de la calle
     root = tk.Tk()
     app = CalleApp(root, algoritmo, parametro)
 
-    # Procesar los parámetros iniciales
-    izquierda, derecha = map(int, parametro.split(","))
-    print(f" Generando {izquierda} carros de izquierda a derecha y {derecha} de derecha a izquierda.")
+    partes = parametro.split(",")
+    izquierda = int(partes[0])
+    derecha = int(partes[1])
+    extra = partes[2] if len(partes) > 2 else ""
 
-    # Generar carros iniciales en la interfaz
-    print(f" Generando {izquierda} carros de izquierda a derecha...")
-    for _ in range(izquierda):
-        app.generar_carro("IZQ")
+    tipos = ["Normal", "Deportivo", "Emergencia"]
 
-    print(f" Generando {derecha} carros de derecha a izquierda...")
-    for _ in range(derecha):
-        app.generar_carro("DER")
+    if algoritmo == "Prioridad":
+        # Asegura que los valores sean enteros y no haya espacios
+        prioridades = [int(x.strip()) for x in extra.split(",")]
+        prioridad_por_tipo = dict(zip(tipos, prioridades))
+        carros_izq = [
+            {"lado": "IZQ", "extra": prioridad_por_tipo[tipos[i % len(tipos)]], "tipo": tipos[i % len(tipos)]}
+            for i in range(izquierda)
+        ]
+        carros_der = [
+            {"lado": "DER", "extra": prioridad_por_tipo[tipos[i % len(tipos)]], "tipo": tipos[i % len(tipos)]}
+            for i in range(derecha)
+        ]
+        carros_izq = sorted(carros_izq, key=lambda c: c["extra"], reverse=True)
+        carros_der = sorted(carros_der, key=lambda c: c["extra"], reverse=True)
+    elif algoritmo in ["SJF", "Tiempo real"]:
+        tiempos = [int(x) for x in extra.split(",") if x.strip().isdigit()]
+        carros_izq = [
+            {"lado": "IZQ", "extra": tiempos[i] if i < len(tiempos) else 1, "tipo": tipos[i % len(tipos)]}
+            for i in range(izquierda)
+        ]
+        carros_der = [
+            {"lado": "DER", "extra": tiempos[izquierda + i] if izquierda + i < len(tiempos) else 1, "tipo": tipos[i % len(tipos)]}
+            for i in range(derecha)
+        ]
+        carros_izq = sorted(carros_izq, key=lambda c: c["extra"])
+        carros_der = sorted(carros_der, key=lambda c: c["extra"])
+    else:
+        carros_izq = [
+            {"lado": "IZQ", "extra": 1, "tipo": tipos[i % len(tipos)]}
+            for i in range(izquierda)
+        ]
+        carros_der = [
+            {"lado": "DER", "extra": 1, "tipo": tipos[i % len(tipos)]}
+            for i in range(derecha)
+        ]
 
-    # Ejecutar el programa test como un proceso externo
+    for i, carro in enumerate(carros_izq):
+        app.generar_carro("IZQ", extra=carro["extra"], pos_fila=i, tipo=carro["tipo"])
+    for i, carro in enumerate(carros_der):
+        app.generar_carro("DER", extra=carro["extra"], pos_fila=i, tipo=carro["tipo"])
+
     try:
-        
         comando = [ejecutable_path, algoritmo]
         if parametro:
-            comando.extend(parametro.split(","))  # Pasar los valores de izquierda y derecha
+            comando.extend(parametro.split(","))
 
         app.test_process = subprocess.Popen(
             comando,
-            cwd=ruta_ce  
+            cwd=ruta_ce
         )
         app.test_pid = app.test_process.pid
         root.mainloop()
     except KeyboardInterrupt:
         app.stop()
 
-
-# === Función para compilar los algoritmos ===
-
 def compilar_algoritmos():
-    """Compilar el programa de prueba y los algoritmos en la carpeta calendarizacion."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     carpeta_calendarizacion = os.path.join(base_dir, "../calendarizacion")
     carpeta_ce = os.path.join(base_dir, "../CEthreads")
 
-    # Compilar el programa test
-    ruta_test = os.path.join(carpeta_ce, "test.c")
-    ruta_ejecutable_test = os.path.join(carpeta_ce, "test")
-
-    print(" Compilando el programa de prueba...")
-    subprocess.run([
-        "gcc", "-o", ruta_ejecutable_test, ruta_test,
-        os.path.join(carpeta_calendarizacion, "c_prioridad.c"),
-        os.path.join(carpeta_calendarizacion, "c_tiempo_real.c"),
-        os.path.join(carpeta_calendarizacion, "FCFS.c"),
-        os.path.join(carpeta_calendarizacion, "RR.c"),
-        os.path.join(carpeta_calendarizacion, "SJF.c"),
-        os.path.join(carpeta_ce, "CEthreads.c"),
-        "-lpthread"
-    ], check=True)
-    print("Compilación completada.")
-
-
-# === Validar parámetro ===
+    print(" Compilando el programa de prueba y algoritmos...")
+    try:
+        subprocess.run([
+            "gcc",
+            os.path.join(carpeta_calendarizacion, "RR.c"),
+            os.path.join(carpeta_calendarizacion, "SJF.c"),
+            os.path.join(carpeta_calendarizacion, "FCFS.c"),
+            os.path.join(carpeta_calendarizacion, "c_prioridad.c"),
+            os.path.join(carpeta_calendarizacion, "c_tiempo_real.c"),
+            os.path.join(carpeta_ce, "CEthreads.c"),
+            os.path.join(carpeta_ce, "test.c"),
+            "-o",
+            os.path.join(carpeta_ce, "test"),
+            "-lpthread"
+        ], check=True)
+        print("Compilación completada.")
+    except subprocess.CalledProcessError as e:
+        print("Error al compilar:", e)
 
 def validar_parametro(parametro):
     try:
@@ -394,9 +454,6 @@ def validar_parametro(parametro):
         return izquierda >= 0 and derecha >= 0
     except ValueError:
         return False
-
-
-# === Ejecutar interfaz de selección ===
 
 if __name__ == "__main__":
     compilar_algoritmos()

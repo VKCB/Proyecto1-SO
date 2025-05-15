@@ -3,16 +3,14 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h> 
+#include "CEthreads.h" 
 
-// Definiciones de tipos y constantes
-typedef enum { LUGAR_IZQUIERDA, LUGAR_DERECHA } LugarInicio;
-typedef enum { TIPO_NORMAL, TIPO_SPORT, TIPO_PRIORITARIO } TipoCarro;
+#include "../calendarizacion/c_prioridad.h"
+#include "../calendarizacion/c_tiempo_real.h"
+#include "../calendarizacion/FCFS.h"
+#include "../calendarizacion/SJF.h"
+#include "../calendarizacion/RR.h"
 
-typedef struct {
-    LugarInicio lugar_inicio;
-    TipoCarro tipo;
-    float velocidad;
-} Car;
 
 // Variables globales para las filas de carros
 #define MAX_CARROS 100
@@ -53,32 +51,32 @@ void agregar_a_fila(Car carro) {
     }
 }
 
-// Función para ordenar una fila según el tipo de carro (Prioridad)
-void ordenar_fila_por_prioridad(Car* fila, int count) {
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = 0; j < count - i - 1; j++) {
-            if (fila[j].tipo < fila[j + 1].tipo) { // Prioridad: Prioritario > Sport > Normal
-                Car temp = fila[j];
-                fila[j] = fila[j + 1];
-                fila[j + 1] = temp;
-            }
-        }
-    }
-}
-
 // Función para procesar las filas de carros
 void procesar_filas(const char* algoritmo) {
     while (count_izquierda > 0 || count_derecha > 0) {
-        // Ordenar las filas según el algoritmo seleccionado
         if (strcmp(algoritmo, "Prioridad") == 0) {
-            ordenar_fila_por_prioridad(fila_izquierda, count_izquierda);
-            ordenar_fila_por_prioridad(fila_derecha, count_derecha);
+            ordenar_por_prioridad(fila_izquierda, count_izquierda);
+            ordenar_por_prioridad(fila_derecha, count_derecha);
+        } else if (strcmp(algoritmo, "TiempoReal") == 0) {
+            ordenar_por_tiempo_real(fila_izquierda, count_izquierda);
+            ordenar_por_tiempo_real(fila_derecha, count_derecha);
+        } else if (strcmp(algoritmo, "FCFS") == 0) {
+            ordenar_por_fcfs(fila_izquierda, count_izquierda);
+            ordenar_por_fcfs(fila_derecha, count_derecha);
+        } else if (strcmp(algoritmo, "SJF") == 0) {
+            ordenar_por_sjf(fila_izquierda, count_izquierda);
+            ordenar_por_sjf(fila_derecha, count_derecha);
+        } else if (strcmp(algoritmo, "RR") == 0) {
+            int quantum = 2; // ejemplo
+            procesar_rr(fila_izquierda, &count_izquierda, quantum);
+            procesar_rr(fila_derecha, &count_derecha, quantum);
+            continue; // RR ya procesa la fila, así que salta el resto del ciclo
         }
 
         // Procesar un carro de la izquierda si hay carros
         if (count_izquierda > 0) {
             Car carro = fila_izquierda[0];
-            printf("🚗 Procesando carro de la izquierda: Tipo=%s, Velocidad=%.1f km/h\n",
+            printf("Procesando carro de la izquierda: Tipo=%s, Velocidad=%.1f km/h\n",
                    tipo_to_string(carro.tipo), carro.velocidad);
             sleep(3); 
             // Mover los carros restantes hacia adelante
@@ -139,6 +137,6 @@ int main(int argc, char* argv[]) {
     // Procesar las filas de carros
     procesar_filas(algoritmo);
 
-    printf(" Todos los carros han cruzado la carretera.\n");
+    printf("✅ Todos los carros han cruzado la carretera.\n");
     return 0;
 }

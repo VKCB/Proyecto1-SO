@@ -19,10 +19,36 @@ void init_mutex_sjf() {
     }
 }
 
+// Ordena una fila de carros por tiempo (SJF) - para test.c (arreglo de estructuras)
+void ordenar_por_sjf(Car* fila, int count) {
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (fila[j].tiempo > fila[j + 1].tiempo) {
+                Car temp = fila[j];
+                fila[j] = fila[j + 1];
+                fila[j + 1] = temp;
+            }
+        }
+    }
+}
+
+// Ordena la cola interna de punteros (para uso interno de SJF)
+void ordenar_cola_listos() {
+    for (int i = 0; i < num_listos - 1; i++) {
+        for (int j = 0; j < num_listos - i - 1; j++) {
+            if (cola_listos[j]->tiempo > cola_listos[j + 1]->tiempo) {
+                Car* temp = cola_listos[j];
+                cola_listos[j] = cola_listos[j + 1];
+                cola_listos[j + 1] = temp;
+            }
+        }
+    }
+}
+
 // Función para agregar un carro a la cola de SJF
 void sjf_agregar_carro(Car* carro) {
     init_mutex_sjf();
-    CEmutex_lock(&mutex); // Bloquear el acceso a las variables compartidas
+    CEmutex_lock(&mutex);
 
     if (num_listos >= MAX_CARROS) {
         printf("[SJF] La cola de SJF está llena.\n");
@@ -35,21 +61,12 @@ void sjf_agregar_carro(Car* carro) {
 
     printf("[SJF] Carro con tid %d agregado a la cola de SJF.\n", carro->tid);
 
-    // Ordenar la cola por tiempo (SJF)
-    for (int i = 0; i < num_listos - 1; i++) {
-        for (int j = 0; j < num_listos - i - 1; j++) {
-            if (cola_listos[j]->tiempo > cola_listos[j + 1]->tiempo) {
-                Car* temp = cola_listos[j];
-                cola_listos[j] = cola_listos[j + 1];
-                cola_listos[j + 1] = temp;
-            }
-        }
-    }
+    // Ordenar la cola interna por tiempo (SJF)
+    ordenar_cola_listos();
 
-    CEmutex_unlock(&mutex); // Desbloquear después de actualizar
+    CEmutex_unlock(&mutex);
 
-    sjf_exec(); // Ejecutar el algoritmo SJF
-    
+    sjf_exec();
 }
 
 // Función que ejecuta el algoritmo SJF
@@ -58,34 +75,29 @@ void sjf_exec() {
     printf("[SJF] Iniciando ejecución de SJF...\n");
 
     while (num_listos > 0) {
-        CEmutex_lock(&mutex); // Bloquear para acceder a la cola
+        CEmutex_lock(&mutex);
 
-        // Verificar si hay carros en la cola
         if (num_listos == 0) {
             CEmutex_unlock(&mutex);
-            break; // Salir del bucle si no hay más carros
+            break;
         }
 
-        // Tomar el primer carro de la cola
         Car* carro = cola_listos[0];
 
-        // Desbloquear antes de ejecutar
         CEmutex_unlock(&mutex);
 
-        // Ejecutar el carro
         printf("[SJF] Ejecutando el carro con tid %d durante %d us...\n", carro->tid, carro->tiempo);
-        usleep(carro->tiempo); // Simula el tiempo que tarda en cruzar
+        usleep(carro->tiempo);
         printf("[SJF] Carro con tid %d ha terminado.\n", carro->tid);
 
-        CEmutex_lock(&mutex); // Volver a bloquear para actualizar la cola
+        CEmutex_lock(&mutex);
 
-        // Eliminar el carro de la cola
         for (int i = 0; i < num_listos - 1; i++) {
             cola_listos[i] = cola_listos[i + 1];
         }
         num_listos--;
 
-        CEmutex_unlock(&mutex); // Desbloquear después de actualizar
+        CEmutex_unlock(&mutex);
     }
 
     printf("[SJF] Todos los carros han sido procesados.\n");
@@ -96,7 +108,6 @@ void sjf_salir(Car* carro) {
     init_mutex_sjf();
     CEmutex_lock(&mutex);
 
-    // Buscar el carro en la cola y eliminarlo
     for (int i = 0; i < num_listos; i++) {
         if (cola_listos[i] == carro) {
             for (int j = i; j < num_listos - 1; j++) {

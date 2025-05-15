@@ -1,4 +1,4 @@
-#include "calendarizador.h"
+#include "c_prioridad.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "../CEthreads/CEthreads.h"
@@ -8,13 +8,12 @@
 static Car* cola_espera[MAX_COLA];
 static int tamaño = 0;
 
-static CEMutex mutex;  // Mutex
-static CECond cond;    // Condición
+static CEMutex mutex;
+static CECond cond;
 
 static int inicializado = 0;
 static int carro_en_carretera = 0;
 
-// Inicializa el algoritmo de Prioridad
 void inicializar_prioridad() {
     if (!inicializado) {
         CEmutex_init(&mutex);
@@ -23,7 +22,6 @@ void inicializar_prioridad() {
     }
 }
 
-// Inserta un carro en la cola según su prioridad
 void insertar_por_prioridad(Car* nuevo) {
     int i = tamaño - 1;
     while (i >= 0 && cola_espera[i]->prioridad > nuevo->prioridad) {
@@ -34,12 +32,10 @@ void insertar_por_prioridad(Car* nuevo) {
     tamaño++;
 }
 
-// Devuelve el primer carro en la cola
 Car* primero_prioridad() {
     return (tamaño > 0) ? cola_espera[0] : NULL;
 }
 
-// Elimina el primer carro de la cola
 void eliminar_primero_prioridad() {
     for (int i = 1; i < tamaño; i++) {
         cola_espera[i - 1] = cola_espera[i];
@@ -47,7 +43,6 @@ void eliminar_primero_prioridad() {
     tamaño--;
 }
 
-// Ingresa un carro al algoritmo de Prioridad
 void prioridad_ingresar(Car* carro) {
     inicializar_prioridad();
     CEmutex_lock(&mutex);
@@ -65,7 +60,6 @@ void prioridad_ingresar(Car* carro) {
     CEmutex_unlock(&mutex);
 }
 
-// Marca que un carro ha salido de la carretera
 void prioridad_salir(Car* carro) {
     CEmutex_lock(&mutex);
 
@@ -74,4 +68,17 @@ void prioridad_salir(Car* carro) {
     CECond_broadcast(&cond);
 
     CEmutex_unlock(&mutex);
+}
+
+// Ordena una fila de carros por prioridad (mayor prioridad primero)
+void ordenar_por_prioridad(Car* fila, int count) {
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (fila[j].prioridad < fila[j + 1].prioridad) {
+                Car temp = fila[j];
+                fila[j] = fila[j + 1];
+                fila[j + 1] = temp;
+            }
+        }
+    }
 }

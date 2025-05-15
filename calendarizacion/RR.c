@@ -152,3 +152,13 @@ void rr_salir(Car* carro) {
 
     printf("[RR] Carro %d eliminado de la cola.\n", id);
 }
+
+// Ordena una fila de carros para RR (no hace nada, pero mantiene la interfaz uniforme)
+void ordenar_por_rr(Car* fila, int count) {
+    // RR no requiere ordenamiento, pero la función existe para mantener la interfaz uniforme
+}
+
+// Procesa una fila de carros para RR (no requiere ordenamiento externo, función vacía para la interfaz)
+void procesar_rr(Car* fila, int* count, int quantum) {
+    // RR no requiere ordenamiento externo, función vacía para la interfaz
+}

@@ -10,4 +10,7 @@ void sjf_agregar_carro(Car* carro);
 void sjf_exec();
 void sjf_salir(Car* carro);
 
+// Ordena una fila de carros por tiempo (SJF)
+void ordenar_por_sjf(Car* fila, int count);
+
 #endif // SJF_H

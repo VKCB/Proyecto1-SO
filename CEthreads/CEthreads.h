@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-
 // Start side
 typedef enum {
     LUGAR_IZQUIERDA,
@@ -38,8 +37,8 @@ typedef struct {
     LugarInicio lugar_inicio; // Side (left/right)
     TipoCarro tipo;           // Car type (normal/sport/prioritario)
     float velocidad;          // Speed
-    int prioridad;      // Priority
-    int tiempo;        // Time
+    int prioridad;            // Priority
+    int tiempo;               // Time
 } Car;
 
 // Thread API

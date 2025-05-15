@@ -3,7 +3,6 @@
 
 #include "calendarizador.h"
 
-
 // Inicializa el algoritmo de Tiempo Real
 void inicializar_tiempo_real();
 
@@ -21,5 +20,8 @@ void tiempo_real_ingresar(Car* carro, int tiempo_maximo);
 
 // Marca que un carro ha salido de la carretera
 void tiempo_real_salir(Car* carro);
+
+// *** NUEVA: Ordena una fila de carros por tiempo real (menor tiempo primero) ***
+void ordenar_por_tiempo_real(Car* fila, int count);
 
 #endif // C_TIEMPO_REAL_H
