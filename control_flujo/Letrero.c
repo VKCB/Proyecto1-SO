@@ -84,10 +84,11 @@ void esperar_turno(Car* car) {
     usleep((unsigned int)(tiempo_cruce * 1e6));
 
     printf("✅ Carro ha cruzado completamente: lugar=%s, vel=%.2f km/h, TID=%d\n",
-        car->lugar_inicio == LUGAR_IZQUIERDA ? "IZQ" : "DER",
-        car->velocidad,
-        car->tid);
+       car->lugar_inicio == LUGAR_IZQUIERDA ? "IZQ" : "DER",
+       car->velocidad,
+       car->tid);
 
+    // Opcional: volver a despertar a los carros del mismo lado
     CEmutex_lock(&mutex_control);
     if (car->lugar_inicio == LUGAR_IZQUIERDA)
         CECond_broadcast(&cond_izquierda);
