@@ -9,35 +9,22 @@ from ctypes import *
 import ctypes 
 from ctypes import Structure, c_int, c_float, c_void_p, c_long, c_char_p
 
+# Carga la biblioteca desde la raíz del proyecto
+lib = CDLL(os.path.join(os.path.dirname(__file__), "../libsimulacion.so"))
 
-lib = CDLL("./libsimulacion.so")
-# Define la estructura de Carro mapeada de C a Python
 class Car(Structure):
     _fields_ = [
-        ("tid", c_long),            # pid_t generalmente es un entero largo
-        ("activo", c_int),          # int
-        ("id", c_int),              # int
-        ("stack", c_void_p),        # void* (puntero genérico)
-        ("done", c_int),            # volatile int
-        ("lugar_inicio", c_int),    # LugarInicio (enum, representado como int)
-        ("tipo", c_int),            # TipoCarro (enum, representado como int)
-        ("velocidad", c_float),     # float
-        ("prioridad", c_int),       # int
-        ("tiempo", c_int)           # int
+        ("tid", c_long),
+        ("activo", c_int),
+        ("id", c_int),
+        ("stack", c_void_p),
+        ("done", c_int),
+        ("lugar_inicio", c_int),
+        ("tipo", c_int),
+        ("velocidad", c_float),
+        ("prioridad", c_int),
+        ("tiempo", c_int)
     ]   
-c_lado = "IZQ"  # Lado del carro, puedes modificarlo según sea necesario
-tipo = "deportivo"  # Tipo de carro, este es un ejemplo
-dx = 10.0  # Por ejemplo, la velocidad
-    
-# Define la función
-
-
-# Crear un carro desde Python
-#carro = lib.crear_carro(b"izquierda", b"sport", 50.0)
-
-# Pasarlo por referencia
-#lib.crear_hilo_carro(byref(carro))
-#lib.esperar_carro(byref(carro))
 
 # === Pantalla de selección de algoritmo ===
 
@@ -109,6 +96,12 @@ class SeleccionAlgoritmoApp:
         derecha_entry = tk.Entry(parametro_root, font=("Arial", 12))
         derecha_entry.pack(pady=5)
 
+        # Agrega selección de método de control
+        tk.Label(parametro_root, text="Método de control:", font=("Arial", 12)).pack(pady=5)
+        control_var = tk.StringVar(value="Equidad")
+        control_combo = ttk.Combobox(parametro_root, textvariable=control_var, values=["Equidad", "Letrero", "FIFO"], state="readonly", font=("Arial", 12))
+        control_combo.pack(pady=5)
+
         tipos = ["Normal", "Deportivo", "Emergencia"]
         prioridad_vars = {}
 
@@ -127,6 +120,7 @@ class SeleccionAlgoritmoApp:
         def continuar_con_parametros():
             izquierda = izquierda_entry.get()
             derecha = derecha_entry.get()
+            control = control_var.get()
             if not izquierda.isdigit() or not derecha.isdigit():
                 tk.Label(parametro_root, text="Ambos valores deben ser números enteros positivos.", fg="red").pack()
                 return
@@ -137,9 +131,9 @@ class SeleccionAlgoritmoApp:
                 if len(set(prioridades)) != 3:
                     tk.Label(parametro_root, text="Cada tipo debe tener una prioridad diferente (1, 2 y 3).", fg="red").pack()
                     return
-                parametro = f"{izquierda},{derecha},{extra}"
+                parametro = f"{izquierda},{derecha},{extra},{control}"
             else:
-                parametro = f"{izquierda},{derecha}"
+                parametro = f"{izquierda},{derecha},{control}"
 
             parametro_root.destroy()
             iniciar_calle(algoritmo, parametro)
@@ -173,6 +167,25 @@ class CalleApp:
         self.canvas = tk.Canvas(root, width=800, height=400, bg="white")
         self.canvas.pack()
 
+        # Etiqueta para mostrar el lado por donde cruza el carro
+        self.lado_label = tk.Label(
+            root,
+            text="Esperando carros...",
+            font=("Arial", 18, "bold"),
+            bg="#f0f0f0",
+            fg="#333"
+        )
+        self.lado_label.place(x=250, y=10, width=300, height=40)
+
+        # --- Indicadores de sentido ---
+        # Izquierda a Derecha
+        self.canvas.create_rectangle(10, 110, 170, 140, fill="#e0e0e0", outline="#888")
+        self.canvas.create_text(90, 125, text="Izquierda → Derecha", font=("Arial", 12, "bold"), fill="black")
+        # Derecha a Izquierda
+        self.canvas.create_rectangle(630, 260, 790, 290, fill="#e0e0e0", outline="#888")
+        self.canvas.create_text(710, 275, text="Derecha → Izquierda", font=("Arial", 12, "bold"), fill="black")
+        # --------------------------------
+
         # --- Botón para volver al menú ---
         self.boton_volver = tk.Button(
             root,
@@ -201,8 +214,12 @@ class CalleApp:
             {"tipo": "Emergencia", "velocidad": 15, "color": "yellow"}
         ]
 
-        self.root.bind("<o>", lambda e: self.generar_carro("IZQ"))
-        self.root.bind("<p>", lambda e: self.generar_carro("DER"))
+        self.lado_activo = "IZQ"  # Empieza por la izquierda
+        self.carros_cruzados_ventana = 0
+        self.ventana = 3  # Tamaño de la ventana
+
+        self.root.bind("<o>", lambda e: self.agregar_carro_manual("IZQ"))
+        self.root.bind("<p>", lambda e: self.agregar_carro_manual("DER"))
         self.root.protocol("WM_DELETE_WINDOW", self.close_program)
         self.root.bind("<w>", self.close_program)
 
@@ -300,7 +317,7 @@ class CalleApp:
                 dx = 10  # Velocidad por defecto
             elif lado == "DER":
                 carros_en_fila = carros_derecha
-                fila_y = 270
+                fila_y = 220 + sum(1 for c in self.carros.values() if c["lado"] == "DER") * 30  # Cambia 270 por 220
                 x = 760
                 dx = -10  # Velocidad por defecto
             else:
@@ -310,8 +327,17 @@ class CalleApp:
             # Generar los carros en la interfaz
             for i, carro in enumerate(carros_en_fila):
                 y = fila_y + i * 30
-                color = "blue" if carro["tipo"] == 0 else "red" if carro["tipo"] == 1 else "yellow"
-                self.carros[i] = {
+                # Asignar color según el tipo
+                if carro["tipo"] == 0 or carro["tipo"] == "Normal":
+                    color = "blue"
+                elif carro["tipo"] == 1 or carro["tipo"] == "Sport":
+                    color = "red"
+                elif carro["tipo"] == 2 or carro["tipo"] == "Prioridad":
+                    color = "yellow"
+                else:
+                    color = "gray"
+                key = f"{lado}_{i}"
+                self.carros[key] = {
                     "x": x,
                     "y": y,
                     "dx": dx,
@@ -321,18 +347,93 @@ class CalleApp:
                     "lado": lado,
                     "estado": "esperando"
                 }
-            """tid = threading.get_ident() + len(self.carros)
-            self.carros[tid] = carro
 
-            # Llama a la función en C para crear el hilo
-            lib.crear_carro_desde_python(c_lado, tipo, c_float(abs(dx)))"""
+            # Hacer que solo un carro (de cualquier lado) cruce a la vez
+            cruzando = any(c["estado"] == "cruzando" for c in self.carros.values())
+            if not cruzando:
+                esperando = [c for c in self.carros.values() if c["estado"] == "esperando"]
+                if esperando:
+                    primero = min(esperando, key=lambda c: c["y"])
+                    primero["estado"] = "cruzando"
+                    # Actualiza la etiqueta del lado
+                    if primero["lado"] == "IZQ":
+                        self.lado_label.config(text="Cruzando: Izquierda → Derecha")
+                    else:
+                        self.lado_label.config(text="Cruzando: Derecha → Izquierda")
 
             print("size of carros_derecha: " + str(len(carros_derecha)))
-            #print(f"Carro generado: Lado={lado}, Tipo={tipo}, Extra={extra}, Estado={estado}, ID={tid}")
+
+    def agregar_carro_manual(self, lado):
+        with self.lock:
+            # Determina la posición y dirección según el lado
+            if lado == "IZQ":
+                x = 0
+                y = 150 + sum(1 for c in self.carros.values() if c["lado"] == "IZQ") * 30
+                dx = 10
+            elif lado == "DER":
+                x = 760
+                y = 220 + sum(1 for c in self.carros.values() if c["lado"] == "DER") * 30  # Cambia 270 por 220
+                dx = -10
+            else:
+                return
+
+            # Alterna tipo de carro para ejemplo visual
+            tipos = ["Normal", "Deportivo", "Emergencia"]
+            tipo = tipos[len(self.carros) % 3]
+            color = {"Normal": "blue", "Deportivo": "red", "Emergencia": "yellow"}[tipo]
+
+            key = f"{lado}_manual_{len(self.carros)}"
+            self.carros[key] = {
+                "x": x,
+                "y": y,
+                "dx": dx,
+                "rect": self.canvas.create_rectangle(x, y, x + 40, y + 20, fill=color),
+                "text": self.canvas.create_text(x + 20, y + 10, text=tipo, fill="white"),
+                "tipo": tipo,
+                "lado": lado,
+                "estado": "esperando"
+            }
+
+            # Si no hay ningún carro cruzando, deja que este cruce
+            cruzando = any(c["estado"] == "cruzando" for c in self.carros.values())
+            if not cruzando:
+                self.carros[key]["estado"] = "cruzando"
+                if lado == "IZQ":
+                    self.lado_label.config(text="Cruzando: Izquierda → Derecha")
+                else:
+                    self.lado_label.config(text="Cruzando: Derecha → Izquierda")
 
     def animate(self):
         with self.lock:
             to_delete = []
+            cruzando = any(c["estado"] == "cruzando" for c in self.carros.values())
+            if not cruzando:
+                # Busca carros esperando del lado activo
+                esperando_lado = [ (tid, c) for tid, c in self.carros.items() if c["estado"] == "esperando" and c["lado"] == self.lado_activo ]
+                if esperando_lado and self.carros_cruzados_ventana < self.ventana:
+                    # El primero en la fila de ese lado cruza
+                    siguiente_tid, siguiente_carro = sorted(esperando_lado, key=lambda x: x[1]["y"])[0]
+                    siguiente_carro["estado"] = "cruzando"
+                    siguiente_carro["y"] = 180
+                    self.canvas.coords(siguiente_carro["rect"], siguiente_carro["x"], siguiente_carro["y"], siguiente_carro["x"]+40, siguiente_carro["y"]+20)
+                    self.canvas.coords(siguiente_carro["text"], siguiente_carro["x"]+20, siguiente_carro["y"]+10)
+                    # Actualiza la etiqueta del lado
+                    if self.lado_activo == "IZQ":
+                        self.lado_label.config(text="Cruzando: Izquierda → Derecha")
+                    else:
+                        self.lado_label.config(text="Cruzando: Derecha → Izquierda")
+                    self.carros_cruzados_ventana += 1
+                else:
+                    # Si ya cruzaron 3 o no hay más en este lado, cambia de lado y reinicia contador
+                    otro_lado = "DER" if self.lado_activo == "IZQ" else "IZQ"
+                    esperando_otro = [ (tid, c) for tid, c in self.carros.items() if c["estado"] == "esperando" and c["lado"] == otro_lado ]
+                    if esperando_otro:
+                        self.lado_activo = otro_lado
+                        self.carros_cruzados_ventana = 0
+                    else:
+                        self.lado_label.config(text="Esperando carros...")
+
+            # --- Movimiento y eliminación de carros ---
             for lado in ["IZQ", "DER"]:
                 carros_lado = [ (tid, c) for tid, c in self.carros.items() if c["lado"] == lado ]
                 if not carros_lado:
@@ -350,26 +451,13 @@ class CalleApp:
                             self.canvas.delete(carro["rect"])
                             self.canvas.delete(carro["text"])
                             to_delete.append(tid)
-                            esperando = [ (tid2, c2) for tid2, c2 in sorted(carros_lado, key=lambda x: x[1]["y"]) if c2["estado"] == "esperando" ]
-                            if esperando:
-                                siguiente_tid, siguiente_carro = esperando[0]
-                                siguiente_carro["estado"] = "cruzando"
-                                siguiente_carro["y"] = 180
-                                self.canvas.coords(siguiente_carro["rect"], siguiente_carro["x"], siguiente_carro["y"], siguiente_carro["x"]+40, siguiente_carro["y"]+20)
-                                self.canvas.coords(siguiente_carro["text"], siguiente_carro["x"]+20, siguiente_carro["y"]+10)
-                            # --- Mueve hacia adelante los que estaban esperando detrás ---
-                            fila_y = 40 if lado == "IZQ" else 270
-                            fila_step = 30
-                            # Solo los que están esperando y tienen y > que el que salió
-                            for tid2, c2 in esperando[1:]:
-                                old_y = c2["y"]
-                                c2["y"] -= fila_step
-                                self.canvas.coords(c2["rect"], c2["x"], c2["y"], c2["x"]+40, c2["y"]+20)
-                                self.canvas.coords(c2["text"], c2["x"]+20, c2["y"]+10)
                         break
 
             for tid in to_delete:
                 del self.carros[tid]
+
+            if not any(c["estado"] == "cruzando" for c in self.carros.values()):
+                self.lado_label.config(text="Esperando carros...")
 
         if self.running and self.root.winfo_exists():
             self.root.after(50, self.animate)
@@ -546,6 +634,7 @@ def compilar_algoritmos():
     carpeta_calendarizacion = os.path.join(base_dir, "../calendarizacion")
     carpeta_ce = os.path.join(base_dir, "../CEthreads")
     carpeta_flujo = os.path.join(base_dir, "../control_flujo")
+    carpeta_raiz = os.path.join(base_dir, "..")
 
     print(" Compilando el programa de prueba y algoritmos...")
     try:
@@ -556,10 +645,13 @@ def compilar_algoritmos():
             os.path.join(carpeta_calendarizacion, "FCFS.c"),
             os.path.join(carpeta_calendarizacion, "c_prioridad.c"),
             os.path.join(carpeta_calendarizacion, "c_tiempo_real.c"),
+            os.path.join(carpeta_calendarizacion, "calendarizador.c"),
             os.path.join(carpeta_ce, "CEthreads.c"),
+            os.path.join(carpeta_ce, "test.c"),
             os.path.join(carpeta_flujo, "Equidad.c"),
             os.path.join(carpeta_flujo, "Letrero.c"),
-            os.path.join(carpeta_ce, "test.c"),
+            os.path.join(carpeta_flujo, "FIFO.c"),
+            os.path.join(carpeta_raiz, "config.c"),
             "-o",
             os.path.join(carpeta_ce, "test"),
             "-lpthread"

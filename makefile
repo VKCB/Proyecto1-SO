@@ -16,14 +16,26 @@ SOURCES = CEthreads/CEthreads.c \
           calendarizacion/SJF.c \
           calendarizacion/FCFS.c \
           control_flujo/Equidad.c \
-          control_flujo/Letrero.c
+          control_flujo/Letrero.c \
+          control_flujo/FIFO.c \
+          config.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
 # Archivos de prueba opcional
 TEST_EXEC = test
 TEST_SRC = CEthreads/test.c
-TEST_DEPS = CEthreads/CEthreads.c control_flujo/Equidad.c control_flujo/Letrero.c
+TEST_DEPS = CEthreads/CEthreads.c \
+            calendarizacion/c_prioridad.c \
+            calendarizacion/c_tiempo_real.c \
+            calendarizacion/RR.c \
+            calendarizacion/SJF.c \
+            calendarizacion/FCFS.c \
+            calendarizacion/calendarizador.c \
+            control_flujo/Equidad.c \
+            control_flujo/Letrero.c \
+            control_flujo/FIFO.c \
+            config.c
 
 # Regla principal
 all: $(CALENDARIZADOR_TARGET) $(SIMULACION_TARGET)
@@ -41,7 +53,7 @@ $(SIMULACION_TARGET): $(SOURCES)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Ejecutar interfaz principal en Python
-run: $(SIMULACION_TARGET)
+run: $(SIMULACION_TARGET) $(TEST_EXEC)
 	python3 interfaz/interfaz.py
 
 # Ejecutar prueba (test)
@@ -49,8 +61,7 @@ run-test: $(TEST_EXEC)
 	./$(TEST_EXEC) Prioridad 3 3
 
 $(TEST_EXEC): $(TEST_SRC) $(TEST_DEPS)
-	$(CC) -Wall -I./CEthreads -I./control_flujo -I./calendarizacion \
-	      $(TEST_SRC) $(TEST_DEPS) -o $(TEST_EXEC) -lpthread
+	$(CC) $(CFLAGS) -o $(TEST_EXEC) $(TEST_SRC) $(TEST_DEPS) -lpthread
 
 # Limpieza
 clean:
