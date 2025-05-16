@@ -464,22 +464,19 @@ class CalleApp:
 
     def update_loop(self):
         while self.running:
-            # This part calls the C function to get the list of active threads (cars)
-            threads = self.list_threads()  # You'll need to implement `list_threads` properly.
-            
-            # Iterate over the threads and simulate each car's movement
+            threads = self.list_threads()
+
             for tid, name in threads:
                 if tid not in self.carros:
                     try:
-                        # Verifica que 'name' tenga al menos 3 partes al separar por '_'
                         name_parts = name.split('_')
-                        if len(name_parts) != 3:
-                            #print(f"Error: nombre de hilo {name} no tiene el formato esperado")
-                            continue  # Salta este hilo si no tiene el formato adecuado
+                        if len(name_parts) != 4:  # Adjusted to handle the new format
+                            continue
 
-                        lado, tipo, velocidad = name_parts
+                        lado, tipo, velocidad, tiempo = name_parts
                         velocidad = int(velocidad)
-                        
+                        tiempo = int(tiempo)
+
                         if lado == "IZQ":
                             x = 0
                             dx = velocidad
@@ -488,7 +485,7 @@ class CalleApp:
                             dx = -velocidad
                         else:
                             continue
-                        
+
                         y = 180
                         color = "blue"
                         for tc in self.tipos_carros:
@@ -500,7 +497,7 @@ class CalleApp:
                             "y": y,
                             "dx": dx,
                             "rect": self.canvas.create_rectangle(x, y, x + 40, y + 20, fill=color),
-                            "text": self.canvas.create_text(x + 20, y + 10, text=name, fill="white"),
+                            "text": self.canvas.create_text(x + 20, y + 10, text=f"{tipo} ({tiempo}s)", fill="white"),
                             "tipo": tipo,
                             "lado": lado,
                             "estado": "esperando"
@@ -508,8 +505,7 @@ class CalleApp:
                         self.carros[tid] = carro
                     except Exception as e:
                         print(f"Error creating car from thread {tid}: {e}")
-            time.sleep(0.05)  # Wait for the next update cycle
-
+            time.sleep(0.05)
 
     def list_threads(self):
         threads = []

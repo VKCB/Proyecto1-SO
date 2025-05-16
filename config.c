@@ -7,7 +7,6 @@ double LONGITUD_CALLE = 0.100;
 int INTERVALO_TURNO = 60;
 int VALOR_W = 3;
 
-
 // Inicialización de los carros en la calle izquierda
 Car carros_izquierda[] = {
     {0, 1, 1, 0, 0, LUGAR_IZQUIERDA, TIPO_NORMAL, 40.0f, 1, 0, 0, 0, 0, 0.0f},  // Cambiado NULL a 0

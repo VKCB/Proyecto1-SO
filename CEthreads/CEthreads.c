@@ -40,9 +40,10 @@ int CEthread_start(void* raw_args) {
             case TIPO_PRIORITARIO: type = "PRIO"; break;
         }
 
-        char name[16];
-        snprintf(name, sizeof(name), "%s_%s_%d", side, type, (int)car->velocidad);
+        char name[32]; // Aumentamos el tamaño por seguridad
+        snprintf(name, sizeof(name), "%s_%s_%d_%d", side, type, (int)car->velocidad, car->tiempo);
         prctl(PR_SET_NAME, name, 0, 0, 0);
+
     }
 
     void* ret = start_routine(arg);

@@ -31,37 +31,53 @@ def list_threads(pid):
     return threads
 
 def monitor_test_threads():
-    print("🔍 Buscando proceso 'test'...")
-    pid = None
-    while pid is None:
-        pid = get_test_pid()
-        time.sleep(1)
+    seen_threads_global = set()
+    all_threads = []
 
-    print(f"✅ Proceso 'test' encontrado con PID {pid}. Monitoreando hilos...\n")
-
-    seen_threads = set()
+    print("🔄 Iniciando monitor de proceso 'test'...\n")
     try:
         while True:
-            # Verifica si /proc/[pid]/task todavía existe
-            if not os.path.exists(f"/proc/{pid}/task"):
-                print("⚠️ Proceso terminó.")
-                break
+            pid = get_test_pid()
 
-            threads = list_threads(pid)
-            new_threads = [(tid, name) for tid, name in threads if tid not in seen_threads]
+            if pid is None:
+                print("⏳ Esperando a que se inicie el proceso 'test'...")
+                time.sleep(2)
+                continue
 
-            for tid, name in new_threads:
-                try:
-                    side, tipo, vel = name.split('_')
-                    print(f"🧵 Hilo detectado - TID: {tid} | Lado: {side} | Tipo: {tipo} | Velocidad: {vel}")
-                except ValueError:
-                    print(f"🧵 Hilo err detectado - TID: {tid}, Nombre: {name}")
-                seen_threads.add(tid)
+            print(f"✅ Proceso 'test' activo con PID {pid}. Monitoreando hilos...\n")
+            seen_threads = set()
 
-            time.sleep(1)
+            while os.path.exists(f"/proc/{pid}/task"):
+                threads = list_threads(pid)
+                new_threads = [(tid, name) for tid, name in threads if tid not in seen_threads_global]
+
+                for tid, name in new_threads:
+                    try:
+                        side, tipo, vel, tiempo = name.split('_')
+                        print(f"Hilo detectado - TID: {tid} | Lado: {side} | Tipo: {tipo} | Velocidad: {vel} | Tiempo: {tiempo}")
+                        all_threads.append({
+                            "tid": tid,
+                            "lado": side,
+                            "tipo": tipo,
+                            "velocidad": int(vel),
+                            "tiempo": int(tiempo)
+                        })
+                    except ValueError:
+                        print(f"Hilo erróneo - TID: {tid}, Nombre: {name}")
+
+                    seen_threads.add(tid)
+                    seen_threads_global.add(tid)
+
+                time.sleep(1)
+
+            print("Proceso 'test' terminó. Reintentando en 2 segundos...\n")
+            time.sleep(2)
+
     except KeyboardInterrupt:
-        print("\n🛑 Monitor detenido.")
-
+        print("\n Monitor detenido manualmente.")
+        print(f"\n Total de hilos registrados: {len(all_threads)}")
+        for thread in all_threads:
+            print(thread)
 
 if __name__ == "__main__":
     monitor_test_threads()
