@@ -61,7 +61,6 @@ void salir_carro(Car* carro) {
             break;
         case RR:
             printf("Usando el algoritmo de Round Robin para sacar el carro %d\n", carro->tid);
-            rr_salir(carro); // Llama a la funcion de salida de RR
             break;
         case FCFS:
             printf("Usando el algoritmo de First Come First Serve para sacar el carro %d\n", carro->tid);

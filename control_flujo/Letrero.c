@@ -1,9 +1,7 @@
 #include "../CEthreads/CEthreads.h"
 #include <stdio.h>
 #include <unistd.h>
-
-#define INTERVALO_TURNO 60  // en segundos
-#define LONGITUD_CALLE 0.010  // en km
+#include "../config.h"
 
 static LugarInicio lado_actual = LUGAR_INICIO;
 static CEMutex mutex_control;
@@ -21,7 +19,7 @@ void iniciar_control() {
 
 
 void* controlador_letrero(void* arg) {
-    sleep(0.5);  // Esperar fase INICIO
+    sleep(3);  // Esperar fase INICIO
     CEmutex_lock(&mutex_control);
     lado_actual = LUGAR_IZQUIERDA;
     tiempo_restante_turno = INTERVALO_TURNO;
@@ -62,7 +60,7 @@ void esperar_turno(Car* car) {
             tiempo_restante_turno -= tiempo_cruce;
             carros_en_turno++;
 
-            printf("🚗 Carro puede pasar: %s, tipo=%d, vel=%.2f km/h, toma %.2f s, tiempo restante: %.2f s\n",
+            printf("Carro puede pasar: %s, tipo=%d, vel=%.2f km/h, toma %.2f s, tiempo restante: %.2f s\n",
                    car->lugar_inicio == LUGAR_IZQUIERDA ? "IZQ" : "DER",
                    car->tipo, car->velocidad, tiempo_cruce, tiempo_restante_turno);
 
@@ -83,7 +81,7 @@ void esperar_turno(Car* car) {
     // Ya fuera del mutex: simula el cruce
     usleep((unsigned int)(tiempo_cruce * 1e6));
 
-    printf("✅ Carro ha cruzado completamente: lugar=%s, vel=%.2f km/h, TID=%d\n",
+    printf("Carro ha cruzado completamente: lugar=%s, vel=%.2f km/h, TID=%d\n",
        car->lugar_inicio == LUGAR_IZQUIERDA ? "IZQ" : "DER",
        car->velocidad,
        car->tid);

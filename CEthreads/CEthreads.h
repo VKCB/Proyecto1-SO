@@ -41,6 +41,10 @@ typedef struct {
     float velocidad;          // Speed
     int prioridad;            // Priority
     int tiempo;               // Time
+    CEMutex mutex;
+    CECond cond;
+    int listo; // 1 si puede correr
+    float tiempo_restante;
 } Car;
 
 // Thread API

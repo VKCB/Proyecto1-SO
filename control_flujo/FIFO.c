@@ -10,41 +10,43 @@ static CEMutex mutex_control;
 static CECond cond_izquierda;
 static CECond cond_derecha;
 
-static int carros_pasados_turno = 0;
 static int esperando_izquierda = 0;
 static int esperando_derecha = 0;
 static int carros_en_cruce = 0;
-static int valor_w_temp;
 
-
-void iniciar_control_equidad(int valor_w) {
+void iniciar_control_FIFO() {
     CEmutex_init(&mutex_control);
     CECond_init(&cond_izquierda);
     CECond_init(&cond_derecha);
-
-    carros_pasados_turno = 0;
-    esperando_izquierda = 0;
-    esperando_derecha = 0;
 }
 
-void* controlador_letrero_equidad(void* arg) {
-    valor_w_temp = 0;
+void* controlador_letrero_FIFO(void* arg) {
     sleep(3);  // Esperar un poco antes de que los carros comiencen
 
     CEmutex_lock(&mutex_control);
-    valor_w_temp = VALOR_W;
     lado_actual = LUGAR_IZQUIERDA;
-    carros_pasados_turno = 0;
-
     printf("\n=== INICIO DE TURNO IZQUIERDA ===\n");
-    CECond_broadcast(&cond_izquierda);
     CEmutex_unlock(&mutex_control);
 
     while (1) {
         CEmutex_lock(&mutex_control);
         int espera_ms = 0;
 
-        while (carros_pasados_turno < valor_w_temp) {
+        // Si no hay carros esperando en este lado, espera un máximo de 2s por si llegan nuevos
+        while (esperando_izquierda == 0 && esperando_derecha == 0) {
+            if (espera_ms >= ESPERA_SIN_CARROS_MS) {
+                printf("No hay carros esperando, esperando más tiempo...\n");
+                break;
+            }
+
+            CEmutex_unlock(&mutex_control);
+            usleep(100 * 1000);  // 100 ms
+            espera_ms += 100;
+            CEmutex_lock(&mutex_control);
+        }
+
+        // Procesar los carros que están en espera
+        while (esperando_izquierda > 0 || esperando_derecha > 0) {
             int quedan_carros = (lado_actual == LUGAR_IZQUIERDA) ? esperando_izquierda : esperando_derecha;
 
             if (quedan_carros > 0) {
@@ -56,14 +58,17 @@ void* controlador_letrero_equidad(void* arg) {
 
             // Si no hay carros esperando, espera un máximo de 2s por si llegan nuevos
             while (espera_ms < ESPERA_SIN_CARROS_MS) {
-                quedan_carros = (lado_actual == LUGAR_IZQUIERDA) ? esperando_izquierda : esperando_derecha;
-                if (quedan_carros > 0) break;
+                if ((lado_actual == LUGAR_IZQUIERDA && esperando_izquierda > 0) ||
+                    (lado_actual == LUGAR_DERECHA && esperando_derecha > 0)) {
+                    break;
+                }
 
                 CEmutex_unlock(&mutex_control);
                 usleep(100 * 1000);
                 espera_ms += 100;
                 CEmutex_lock(&mutex_control);
             }
+
             break;
         }
 
@@ -74,17 +79,11 @@ void* controlador_letrero_equidad(void* arg) {
             CEmutex_lock(&mutex_control);
         }
 
-        printf("=== FIN DE TURNO: %d carros pasaron ===\n", carros_pasados_turno);
-        carros_pasados_turno = 0;
+        printf("=== FIN DE TURNO: %d carros pasaron ===\n", esperando_izquierda + esperando_derecha);
 
         // Cambiar de lado
         lado_actual = (lado_actual == LUGAR_IZQUIERDA) ? LUGAR_DERECHA : LUGAR_IZQUIERDA;
         printf("\n=== INICIO DE TURNO %s ===\n", lado_actual == LUGAR_IZQUIERDA ? "IZQUIERDA" : "DERECHA");
-
-        if (lado_actual == LUGAR_IZQUIERDA)
-            CECond_broadcast(&cond_izquierda);
-        else
-            CECond_broadcast(&cond_derecha);
 
         CEmutex_unlock(&mutex_control);
     }
@@ -92,8 +91,7 @@ void* controlador_letrero_equidad(void* arg) {
     return NULL;
 }
 
-
-void esperar_turno_equidad(Car* car) {
+void esperar_turno_FIFO(Car* car) {
     float tiempo_cruce = (LONGITUD_CALLE / car->velocidad) * 3600.0f;  // en segundos
 
     // Registrar carro esperando
@@ -107,20 +105,17 @@ void esperar_turno_equidad(Car* car) {
     while (1) {
         CEmutex_lock(&mutex_control);
 
-        if (car->lugar_inicio == lado_actual && carros_pasados_turno < valor_w_temp) {
-            carros_pasados_turno++;
-
-            if (car->lugar_inicio == LUGAR_IZQUIERDA)
+        if (car->lugar_inicio == lado_actual) {
+            if (car->lugar_inicio == LUGAR_IZQUIERDA) {
                 esperando_izquierda--;
-            else
+            } else {
                 esperando_derecha--;
+            }
 
             carros_en_cruce++;  // Marcar que este carro está cruzando
-
-            printf("Carro puede pasar: %s, tipo=%d, vel=%.2f km/h, toma %.2f s, turno %d/%d\n",
+            printf("Carro puede pasar: %s, tipo=%d, vel=%.2f km/h, toma %.2f s\n",
                    car->lugar_inicio == LUGAR_IZQUIERDA ? "IZQ" : "DER",
-                   car->tipo, car->velocidad, tiempo_cruce,
-                   carros_pasados_turno, valor_w_temp);
+                   car->tipo, car->velocidad, tiempo_cruce);
 
             CEmutex_unlock(&mutex_control);
             break;

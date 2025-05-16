@@ -29,21 +29,8 @@ c_lado = "IZQ"  # Lado del carro, puedes modificarlo según sea necesario
 tipo = "deportivo"  # Tipo de carro, este es un ejemplo
 dx = 10.0  # Por ejemplo, la velocidad
     
-lib.crear_carro_desde_python(c_lado.encode('utf-8'), tipo.encode('utf-8'), ctypes.c_float(abs(dx)))
 # Define la función
-lib.crear_carro.argtypes = [c_char_p, c_char_p, c_float]
-lib.crear_carro.restype = Car
-lib.controlador_letrero_equidad.argtypes = [c_void_p]
-lib.controlador_letrero_equidad.restype = c_void_p
 
-lib.crear_hilo_carro.argtypes = [POINTER(Car)]
-lib.esperar_carro.argtypes = [POINTER(Car)]
-
-# Para obtener las filas procesadas por los algoritmos de calendarizacion
-lib.obtener_fila_izquierda.restype = ctypes.POINTER(Car)
-lib.obtener_fila_derecha.restype = ctypes.POINTER(Car)
-lib.obtener_count_izquierda.restype = ctypes.c_int
-lib.obtener_count_derecha.restype = ctypes.c_int
 
 # Crear un carro desde Python
 #carro = lib.crear_carro(b"izquierda", b"sport", 50.0)
@@ -464,23 +451,41 @@ def iniciar_calle(algoritmo, parametro):
     ruta_ce = os.path.join(base_dir, "../CEthreads")
 
     if not os.path.exists(ejecutable_path):
-        print(f" El ejecutable 'test' no existe. Asegúrate de compilarlo.")
+        print("El ejecutable 'test' no existe. Asegúrate de compilarlo.")
         return
+
+    partes = parametro.split(",")
+    if len(partes) < 3:
+        print("Error: se necesitan al menos 3 parámetros: izquierda,derecha,control")
+        return
+
+    izquierda = int(partes[0])
+    derecha = int(partes[1])
+    control = partes[-1]  # Último parámetro es el método de control
+
+    controles_validos = ["Equidad", "Letrero", "FIFO"]
+    if control not in controles_validos:
+        print(f"Error: método de control '{control}' no es válido. Usa: {controles_validos}")
+        return
+
+    extra = partes[2:-1]  # Lo que está entre izquierda,derecha y control
+    tipos = ["Normal", "Deportivo", "Emergencia"]
 
     root = tk.Tk()
     app = CalleApp(root, algoritmo, parametro)
 
-    partes = parametro.split(",")
-    izquierda = int(partes[0])
-    derecha = int(partes[1])
-    extra = partes[2] if len(partes) > 2 else ""
-
-    tipos = ["Normal", "Deportivo", "Emergencia"]
-
     if algoritmo == "Prioridad":
-        # Asegura que los valores sean enteros y no haya espacios
-        prioridades = [int(x.strip()) for x in extra.split(",")]
-        prioridad_por_tipo = dict(zip(tipos, prioridades))
+        try:
+            prioridades = [int(x.strip()) for x in extra]
+        except ValueError:
+            print("Error: prioridades deben ser números enteros.")
+            return
+
+        if len(prioridades) < len(tipos):
+            prioridades *= (len(tipos) // len(prioridades)) + 1
+
+        prioridad_por_tipo = dict(zip(tipos, prioridades[:len(tipos)]))
+
         carros_izq = [
             {"lado": "IZQ", "extra": prioridad_por_tipo[tipos[i % len(tipos)]], "tipo": tipos[i % len(tipos)]}
             for i in range(izquierda)
@@ -489,21 +494,30 @@ def iniciar_calle(algoritmo, parametro):
             {"lado": "DER", "extra": prioridad_por_tipo[tipos[i % len(tipos)]], "tipo": tipos[i % len(tipos)]}
             for i in range(derecha)
         ]
-        carros_izq = sorted(carros_izq, key=lambda c: c["extra"], reverse=True)
-        carros_der = sorted(carros_der, key=lambda c: c["extra"], reverse=True)
+        carros_izq.sort(key=lambda c: c["extra"], reverse=True)
+        carros_der.sort(key=lambda c: c["extra"], reverse=True)
+
     elif algoritmo in ["SJF", "Tiempo real"]:
-        tiempos = [int(x) for x in extra.split(",") if x.strip().isdigit()]
+        try:
+            tiempos = [int(x.strip()) for x in extra]
+        except ValueError:
+            print("Error: los tiempos deben ser números enteros.")
+            return
+
         carros_izq = [
             {"lado": "IZQ", "extra": tiempos[i] if i < len(tiempos) else 1, "tipo": tipos[i % len(tipos)]}
             for i in range(izquierda)
         ]
         carros_der = [
-            {"lado": "DER", "extra": tiempos[izquierda + i] if izquierda + i < len(tiempos) else 1, "tipo": tipos[i % len(tipos)]}
+            {"lado": "DER", "extra": tiempos[izquierda + i] if izquierda + i < len(tiempos) else 1,
+             "tipo": tipos[i % len(tipos)]}
             for i in range(derecha)
         ]
-        carros_izq = sorted(carros_izq, key=lambda c: c["extra"])
-        carros_der = sorted(carros_der, key=lambda c: c["extra"])
+        carros_izq.sort(key=lambda c: c["extra"])
+        carros_der.sort(key=lambda c: c["extra"])
+
     else:
+        # Algoritmos sin prioridad ni tiempo (FCFS, RR, etc.)
         carros_izq = [
             {"lado": "IZQ", "extra": 1, "tipo": tipos[i % len(tipos)]}
             for i in range(izquierda)
@@ -514,24 +528,19 @@ def iniciar_calle(algoritmo, parametro):
         ]
 
     for i, carro in enumerate(carros_izq):
-        app.generar_carro("IZQ", extra=carro["extra"], pos_fila=i, tipo=carro["tipo"])
+        app.generar_carro(carro["lado"], extra=carro["extra"], pos_fila=i, tipo=carro["tipo"])
     for i, carro in enumerate(carros_der):
-        app.generar_carro("DER", extra=carro["extra"], pos_fila=i, tipo=carro["tipo"])
+        app.generar_carro(carro["lado"], extra=carro["extra"], pos_fila=i, tipo=carro["tipo"])
 
     try:
-        comando = [ejecutable_path, algoritmo]
-        if parametro:
-            comando.extend(parametro.split(","))
-
-        app.test_process = subprocess.Popen(
-            comando,
-            cwd=ruta_ce
-        )
+        comando = [ejecutable_path, algoritmo, str(izquierda), str(derecha), control]
+        app.test_process = subprocess.Popen(comando, cwd=ruta_ce)
         app.test_pid = app.test_process.pid
         root.mainloop()
     except KeyboardInterrupt:
         app.stop()
 
+        
 def compilar_algoritmos():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     carpeta_calendarizacion = os.path.join(base_dir, "../calendarizacion")

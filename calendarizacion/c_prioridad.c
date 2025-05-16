@@ -4,6 +4,7 @@
 #include "../CEthreads/CEthreads.h"
 
 #define MAX_COLA 100
+#define MAX_COLA 100
 
 static Car* cola_espera[MAX_COLA];
 static int tamaño = 0;

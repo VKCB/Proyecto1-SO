@@ -2,7 +2,6 @@
 #define EQUIDAD_H
 
 #include "../CEthreads/CEthreads.h"
-#include "../CEthreads/CEthreads.h"
 
 // Inicializa el controlador de tráfico
 void iniciar_control_equidad(int w);

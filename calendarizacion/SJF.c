@@ -32,6 +32,8 @@ void ordenar_por_sjf(Car* fila, int count) {
     }
 }
 
+
+
 // Ordena la cola interna de punteros (para uso interno de SJF)
 void ordenar_cola_listos() {
     for (int i = 0; i < num_listos - 1; i++) {
