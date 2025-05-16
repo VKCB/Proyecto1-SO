@@ -44,8 +44,6 @@ void* rutina_carro(void* arg) {
     return NULL;
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
 
 // Función para convertir LugarInicio a cadena
 const char* lugar_to_string(LugarInicio lugar) {
@@ -88,9 +86,6 @@ void esperar_carro(Car* car) {
     CEthread_join(car);
 }
 
-// interfaz para Python
-#include "CEthreads.h"
-
 void crear_carro_desde_python(int lado, int tipo, float velocidad) {
     Car carro;
     carro.lugar_inicio = lado == 0 ? LUGAR_IZQUIERDA : LUGAR_DERECHA;
@@ -107,15 +102,20 @@ void agregar_a_fila(Car carro) {
     if (carro.lugar_inicio == LUGAR_IZQUIERDA) {
         if (count_izquierda < MAX_CARROS) {
             fila_izquierda[count_izquierda++] = carro;
+            //printf("se agrega a fila de la izquierda.\n");
         } else {
             printf("La fila de la izquierda está llena.\n");
         }
     } else if (carro.lugar_inicio == LUGAR_DERECHA) {
         if (count_derecha < MAX_CARROS) {
             fila_derecha[count_derecha++] = carro;
+            //printf("se agrega a fila de la derecha.\n");
         } else {
             printf("La fila de la derecha está llena.\n");
         }
+    }
+    else {
+       printf("Error: Lugar de inicio desconocido para el carro.\n");
     }
 }
 
@@ -125,6 +125,7 @@ void procesar_filas(const char* algoritmo) {
         if (strcmp(algoritmo, "Prioridad") == 0) {
             ordenar_por_prioridad(fila_izquierda, count_izquierda);
             ordenar_por_prioridad(fila_derecha, count_derecha);
+            
         } else if (strcmp(algoritmo, "TiempoReal") == 0) {
             ordenar_por_tiempo_real(fila_izquierda, count_izquierda);
             ordenar_por_tiempo_real(fila_derecha, count_derecha);
@@ -169,6 +170,30 @@ void procesar_filas(const char* algoritmo) {
     }
 }
 
+// Función para obtener la fila izquierda
+Car* obtener_fila_izquierda() {
+    return fila_izquierda;  
+}
+
+// Función para obtener la fila derecha
+Car* obtener_fila_derecha() {
+    return fila_derecha;  
+}
+
+// Función para obtener el número de carros en la fila izquierda
+int obtener_count_izquierda() {
+    printf("Count izquierda desde C: %d\n", count_izquierda);
+    return count_izquierda;
+}
+
+// Función para obtener el número de carros en la fila derecha
+int obtener_count_derecha() {
+
+    printf("Count derecha desde C: %d\n", count_derecha);
+    return count_derecha;
+}
+
+
 int main(int argc, char* argv[]) {
 
 
@@ -199,11 +224,22 @@ int main(int argc, char* argv[]) {
         carro.lugar_inicio = LUGAR_IZQUIERDA;
         carro.tipo = (i % 3 == 0) ? TIPO_PRIORITARIO : (i % 2 == 0) ? TIPO_SPORT : TIPO_NORMAL;
         carro.velocidad = 30.0f + (i % 3) * 10.0f;
+        // Imprimir detalles del carro antes de agregarlo
+        printf("Creando carro %d desde la izquierda: Tipo=%s, Velocidad=%.1f\n",
+            i, tipo_to_string(carro.tipo), carro.velocidad);
+
         agregar_a_fila(carro);
 
-        Car* car_ptr = &fila_izquierda[i];
+        // Imprimir el estado de la fila izquierda después de agregar el carro
+        printf("Fila izquierda después de agregar carro %d: Count izquierda=%d\n", i, count_izquierda);
+
+
+        Car* car_ptr = &fila_izquierda[count_izquierda - 1];
         CEthread_create(car_ptr, rutina_carro, car_ptr);  // car_ptr ya es Car*, guarda tid internamente
     }
+
+    //printf("Primer carro en la fila izquierda: Tipo=%s\n", tipo_to_string(fila_izquierda[0].tipo));
+
 
     // Crear carros desde la derecha
     for (int i = 0; i < carros_derecha; i++) {
@@ -211,12 +247,23 @@ int main(int argc, char* argv[]) {
         carro.lugar_inicio = LUGAR_DERECHA;
         carro.tipo = (i % 3 == 0) ? TIPO_PRIORITARIO : (i % 2 == 0) ? TIPO_SPORT : TIPO_NORMAL;
         carro.velocidad = 30.0f + (i % 3) * 10.0f;
+        
+        // Imprimir detalles del carro antes de agregarlo
+        printf("Creando carro %d desde la derecha: Tipo=%s, Velocidad=%.1f\n",
+                i, tipo_to_string(carro.tipo), carro.velocidad);
+
         agregar_a_fila(carro);
 
-        Car* car_ptr = &fila_derecha[i];
+        // Imprimir el estado de la fila derecha después de agregar el carro
+        printf("Fila derecha después de agregar carro %d: Count derecha=%d\n", i, count_derecha);
+
+        Car* car_ptr = &fila_derecha[count_derecha - 1];
         CEthread_create(car_ptr, rutina_carro, car_ptr);
     }
 
+    procesar_filas(algoritmo);  // Procesar las filas de carros según el algoritmo
+    
+    
     // Esperar que todos los carros terminen con CEthread_join
     for (int i = 0; i < count_izquierda; i++) {
         CEthread_join(&fila_izquierda[i]);
@@ -225,7 +272,7 @@ int main(int argc, char* argv[]) {
         CEthread_join(&fila_derecha[i]);
     }
 
-    printf("✅ Todos los carros han cruzado la carretera.\n");
+    printf("Todos los carros cruzaron la carretera \n");
     return 0;
 }
 
@@ -255,6 +302,4 @@ void iniciar_simulacion(int cantidad_izq, int cantidad_der) {
         car->velocidad = 30.0f + (i % 3) * 10.0f;
         CEthread_create(car, rutina_carro, car);
     }
-
-    // ⚠️ Nota: no hay join, ya que no conservamos punteros en este ejemplo.
 }

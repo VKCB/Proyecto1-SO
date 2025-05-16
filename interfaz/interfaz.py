@@ -7,18 +7,24 @@ import subprocess
 
 from ctypes import *
 import ctypes 
+from ctypes import Structure, c_int, c_float, c_void_p, c_long, c_char_p
 
 
 lib = CDLL("./libsimulacion.so")
-
-
-
+# Define la estructura de Carro mapeada de C a Python
 class Car(Structure):
-    _fields_ = [("lugar_inicio", c_int),
-                ("tipo", c_int),
-                ("velocidad", c_float),
-                ("tid", c_ulong)]  # Ajusta esto según la definición exacta en C
-    
+    _fields_ = [
+        ("tid", c_long),            # pid_t generalmente es un entero largo
+        ("activo", c_int),          # int
+        ("id", c_int),              # int
+        ("stack", c_void_p),        # void* (puntero genérico)
+        ("done", c_int),            # volatile int
+        ("lugar_inicio", c_int),    # LugarInicio (enum, representado como int)
+        ("tipo", c_int),            # TipoCarro (enum, representado como int)
+        ("velocidad", c_float),     # float
+        ("prioridad", c_int),       # int
+        ("tiempo", c_int)           # int
+    ]   
 c_lado = "IZQ"  # Lado del carro, puedes modificarlo según sea necesario
 tipo = "deportivo"  # Tipo de carro, este es un ejemplo
 dx = 10.0  # Por ejemplo, la velocidad
@@ -32,6 +38,12 @@ lib.controlador_letrero_equidad.restype = c_void_p
 
 lib.crear_hilo_carro.argtypes = [POINTER(Car)]
 lib.esperar_carro.argtypes = [POINTER(Car)]
+
+# Para obtener las filas procesadas por los algoritmos de calendarizacion
+lib.obtener_fila_izquierda.restype = ctypes.POINTER(Car)
+lib.obtener_fila_derecha.restype = ctypes.POINTER(Car)
+lib.obtener_count_izquierda.restype = ctypes.c_int
+lib.obtener_count_derecha.restype = ctypes.c_int
 
 # Crear un carro desde Python
 #carro = lib.crear_carro(b"izquierda", b"sport", 50.0)
@@ -231,68 +243,105 @@ class CalleApp:
         app_menu = SeleccionAlgoritmoApp(root_menu)
         root_menu.mainloop()
 
+    # funcion para obtener filas y cantidad de carros en cada fila desde el archivo test.c
+    def obtener_filas_desde_c(self):
+        """
+        Obtiene las filas izquierda y derecha desde el programa en C.
+        """
+        # Obtener el número de carros en cada fila
+        count_izquierda = lib.obtener_count_izquierda()
+        count_derecha = lib.obtener_count_derecha()
+        # Obtener los punteros a las filas
+        fila_izquierda = lib.obtener_fila_izquierda()
+        fila_derecha = lib.obtener_fila_derecha()
+
+        # Depuración: Imprimir los punteros
+        #print(f"Fila izquierda puntero: {fila_izquierda}")
+        #print(f"Fila derecha puntero: {fila_derecha}")
+
+
+        # print de conteos para probar
+        print(f"Count izquierda python: {count_izquierda}, Count derecha python: {count_derecha}")
+
+        
+
+        # Convertir las filas en listas de Python
+        carros_izquierda = [
+            {
+                "tid": fila_izquierda[i].tid,
+                "activo": fila_izquierda[i].activo,
+                "id": fila_izquierda[i].id,
+                "lugar_inicio": fila_izquierda[i].lugar_inicio,
+                "tipo": fila_izquierda[i].tipo,
+                "velocidad": fila_izquierda[i].velocidad,
+                "prioridad": fila_izquierda[i].prioridad,
+                "tiempo": fila_izquierda[i].tiempo
+            }
+            for i in range(count_izquierda)
+        ]
+
+        carros_derecha = [
+            {
+                "tid": fila_derecha[i].tid,
+                "activo": fila_derecha[i].activo,
+                "id": fila_derecha[i].id,
+                "lugar_inicio": fila_derecha[i].lugar_inicio,
+                "tipo": fila_derecha[i].tipo,
+                "velocidad": fila_derecha[i].velocidad,
+                "prioridad": fila_derecha[i].prioridad,
+                "tiempo": fila_derecha[i].tiempo
+            }
+            for i in range(count_derecha)
+        ]
+
+        # print de filas convertidas
+        print("Carros izquierda son estos:", carros_izquierda)
+        print("Carros derecha son estos:", carros_derecha)
+    
+        return carros_izquierda, carros_derecha    
+
     def generar_carro(self, lado, extra=None, pos_fila=None, tipo=None):
         with self.lock:
-            if tipo is None:
-                tipo_carro = self.tipos_carros[self.tipo_carro_actual]
-                tipo = tipo_carro["tipo"]
-                self.tipo_carro_actual = (self.tipo_carro_actual + 1) % len(self.tipos_carros)
-            else:
-                tipo_carro = next(tc for tc in self.tipos_carros if tc["tipo"] == tipo)
-            
-            color = tipo_carro["color"]
-            fila_step = 30
-            calle_y = 180
-
+            # Obtener las filas desde C
+            carros_izquierda, carros_derecha = self.obtener_filas_desde_c()
+    
+            # Seleccionar la fila correspondiente
             if lado == "IZQ":
-                fila_y = 150 - fila_step
-                carros_en_fila = [c for c in self.carros.values() if c["lado"] == "IZQ" and c["estado"] == "esperando"]
-                pos = pos_fila if pos_fila is not None else len(carros_en_fila)
-                y = fila_y - pos * fila_step
+                carros_en_fila = carros_izquierda
+                fila_y = 150
                 x = 0
-                dx = tipo_carro["velocidad"]
-                c_lado = 0  # LUGAR_IZQUIERDA
+                dx = 10  # Velocidad por defecto
             elif lado == "DER":
+                carros_en_fila = carros_derecha
                 fila_y = 270
-                carros_en_fila = [c for c in self.carros.values() if c["lado"] == "DER" and c["estado"] == "esperando"]
-                pos = pos_fila if pos_fila is not None else len(carros_en_fila)
-                y = fila_y + pos * fila_step
                 x = 760
-                dx = -tipo_carro["velocidad"]
-                c_lado = 1  # LUGAR_DERECHA
+                dx = -10  # Velocidad por defecto
             else:
                 print(f"Lado inválido: {lado}")
                 return
-
-            carros_cruzando = [c for c in self.carros.values() if c["lado"] == lado and c["estado"] == "cruzando"]
-            if not carros_cruzando and pos == 0:
-                estado = "cruzando"
-                y = calle_y
-            else:
-                estado = "esperando"
-
-            tiempo_cruce = 800 / abs(dx)  # Suponiendo que la calle tiene 800 píxeles de largo
-
-            carro = {
-                "x": x,
-                "y": y,
-                "dx": dx,
-                "tiempo_cruce": tiempo_cruce,  # Añadir el tiempo de cruce
-                "rect": self.canvas.create_rectangle(x, y, x + 40, y + 20, fill=color),
-                "text": self.canvas.create_text(x + 20, y + 10, text=str(extra) if extra is not None else "", fill="white"),
-                "tipo": tipo,
-                "lado": lado,
-                "extra": extra,
-                "estado": estado
-            }
-
-            tid = threading.get_ident() + len(self.carros)
+    
+            # Generar los carros en la interfaz
+            for i, carro in enumerate(carros_en_fila):
+                y = fila_y + i * 30
+                color = "blue" if carro["tipo"] == 0 else "red" if carro["tipo"] == 1 else "yellow"
+                self.carros[i] = {
+                    "x": x,
+                    "y": y,
+                    "dx": dx,
+                    "rect": self.canvas.create_rectangle(x, y, x + 40, y + 20, fill=color),
+                    "text": self.canvas.create_text(x + 20, y + 10, text=str(carro["velocidad"]), fill="white"),
+                    "tipo": carro["tipo"],
+                    "lado": lado,
+                    "estado": "esperando"
+                }
+            """tid = threading.get_ident() + len(self.carros)
             self.carros[tid] = carro
 
-            # 👉 Llama a la función en C para crear el hilo
-            lib.crear_carro_desde_python(c_lado, tipo, c_float(abs(dx)))
+            # Llama a la función en C para crear el hilo
+            lib.crear_carro_desde_python(c_lado, tipo, c_float(abs(dx)))"""
 
-            print(f"Carro generado: Lado={lado}, Tipo={tipo}, Extra={extra}, Estado={estado}, ID={tid}")
+            print("size of carros_derecha: " + str(len(carros_derecha)))
+            #print(f"Carro generado: Lado={lado}, Tipo={tipo}, Extra={extra}, Estado={estado}, ID={tid}")
 
     def animate(self):
         with self.lock:
@@ -506,7 +555,7 @@ def compilar_algoritmos():
             os.path.join(carpeta_ce, "test"),
             "-lpthread"
         ], check=True)
-        print("Compilación completada.")
+        print("Compilación completada")
     except subprocess.CalledProcessError as e:
         print("Error al compilar:", e)
 
