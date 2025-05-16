@@ -85,8 +85,12 @@ void fcfs_exec() {
 }
 
 // Ordena una fila de carros por orden de llegada (no hace nada, pero mantiene la interfaz)
-void ordenar_por_fcfs(Car* fila, int count) {
-    // FCFS no requiere ordenamiento, función vacía para la interfaz
+void ordenar_por_fcfs(Car* fila, int* count) {
+    for (int i = 0; i < *count; i++) {
+        printf("[FCFS] Procesando carro con ID %d...\n", fila[i].id);
+        usleep(fila[i].tiempo * 1000); // Simula el tiempo de ejecución
+    }
+    *count = 0; // Después de procesar, la fila queda vacía
 }
 
 void fcfs_salir(Car* carro) {

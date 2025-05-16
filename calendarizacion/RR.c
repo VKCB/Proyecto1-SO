@@ -158,7 +158,10 @@ void ordenar_por_rr(Car* fila, int count) {
     // RR no requiere ordenamiento, pero la función existe para mantener la interfaz uniforme
 }
 
-// Procesa una fila de carros para RR (no requiere ordenamiento externo, función vacía para la interfaz)
 void procesar_rr(Car* fila, int* count, int quantum) {
-    // RR no requiere ordenamiento externo, función vacía para la interfaz
+    for (int i = 0; i < *count; i++) {
+        rr_agregar_carro(&fila[i]); // Agregar cada carro a la cola de RR
+    }
+    rr_exec(); // Ejecutar el algoritmo de Round Robin
+    *count = 0; // Después de procesar, la fila queda vacía
 }
