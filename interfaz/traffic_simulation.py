@@ -4,9 +4,17 @@ import random
 import time
 from enum import Enum
 from collections import deque
+import ctypes
+
+# Load the shared library
+lib = ctypes.CDLL("./libcalendarizador.so")
 
 # Initialize pygame
 pygame.init()
+
+# Access the global variables
+valor_w = ctypes.c_int.in_dll(lib, "VALOR_W").value
+intervalo_turno = ctypes.c_int.in_dll(lib, "INTERVALO_TURNO").value
 
 # Constants
 WIDTH, HEIGHT = 800, 600
@@ -76,7 +84,7 @@ class Car:
         current_time = time.time()
         
         # Set car ready after 3-second delay from detection
-        if not self.ready_to_cross and current_time - self.detection_time >= 3:
+        if not self.ready_to_cross and current_time - self.detection_time >= 0:
             self.ready_to_cross = True
         
         # If car is in transit, calculate progress based on tiempo attribute
@@ -141,8 +149,8 @@ class TrafficSimulation:
         # Traffic control variables
         self.algorithm = Algorithm.LETRERO
         self.current_direction = Direction.RIGHT  # Start with right direction
-        self.switch_time = 5  # seconds for Letrero
-        self.cars_to_pass = 3  # number of cars for Equidad
+        self.switch_time = intervalo_turno  # seconds for Letrero
+        self.cars_to_pass = valor_w  # number of cars for Equidad
         self.cars_passed = 0
         self.last_switch = time.time()
         
@@ -154,6 +162,11 @@ class TrafficSimulation:
         
         # Font for text display
         self.font = pygame.font.Font(None, 36)
+        
+        self.thread_monitor = None  # Reference to ThreadMonitor
+
+    def set_thread_monitor(self, monitor):
+        self.thread_monitor = monitor
     
     def handle_events(self):
         for event in pygame.event.get():
@@ -172,7 +185,19 @@ class TrafficSimulation:
                     print("Algorithm switched to FIFO")
     
     def update(self):
-        # Check if current car has passed
+        # Check if all cars have passed
+        cars_left = sum(1 for car in self.cars if car.direction == Direction.RIGHT and not car.in_transit and not car.passed)
+        cars_right = sum(1 for car in self.cars if car.direction == Direction.LEFT and not car.in_transit and not car.passed)
+
+        if cars_left == 0 and cars_right == 0 and len(self.cars) > 0:
+            print("All cars have passed. Restarting monitoring...")
+            if self.thread_monitor:
+                self.thread_monitor.restart_monitoring()
+            self.cars.clear()
+            if hasattr(self, 'car_queue'):
+                self.car_queue.clear()
+
+        # Continue with normal update
         if self.current_car and self.current_car.passed:
             self.current_car = None
         
@@ -221,7 +246,6 @@ class TrafficSimulation:
         if ready_cars:
             self.current_car = ready_cars[0]
             self.current_car.in_transit = True
-            print(f"Car {self.current_car.tid} from {'RIGHT' if self.current_car.direction == Direction.LEFT else 'LEFT'} side is now in transit")
     
     def apply_equidad_algorithm(self):
         # Get cars ready to cross on current side
@@ -243,7 +267,6 @@ class TrafficSimulation:
             self.current_car = ready_cars[0]
             self.current_car.in_transit = True
             self.cars_passed += 1
-            print(f"Car {self.current_car.tid} from {'RIGHT' if self.current_car.direction == Direction.LEFT else 'LEFT'} side is now in transit ({self.cars_passed}/{self.cars_to_pass})")
     
     def apply_fifo_algorithm(self):
         # Filter out cars that aren't ready yet
@@ -256,12 +279,11 @@ class TrafficSimulation:
             # If current direction doesn't match the oldest car, switch direction
             if oldest_car.direction != self.current_direction:
                 self.current_direction = oldest_car.direction
-                print(f"Switching direction to {'RIGHT' if self.current_direction == Direction.RIGHT else 'LEFT'}")
+                print(f"Cambiando dirección a  {'RIGHT' if self.current_direction == Direction.RIGHT else 'LEFT'}")
             
             # Let the car pass
             self.current_car = oldest_car
             self.current_car.in_transit = True
-            print(f"Car {self.current_car.tid} from {'RIGHT' if self.current_car.direction == Direction.LEFT else 'LEFT'} side is now in transit (FIFO)")
     
     def draw(self):
         # Background
@@ -279,34 +301,34 @@ class TrafficSimulation:
             car.draw(self.screen)
         
         # Draw algorithm information
-        algorithm_text = f"Algorithm: {self.algorithm.name}"
+        algorithm_text = f"Control de flujo: {self.algorithm.name}"
         text_surface = self.font.render(algorithm_text, True, (0, 0, 0))
         self.screen.blit(text_surface, (10, 10))
         
-        direction_text = f"Current Direction: {'RIGHT ⟶' if self.current_direction == Direction.RIGHT else '⟵ LEFT'}"
+        direction_text = f"Dirección: {'RIGHT -->' if self.current_direction == Direction.RIGHT else '<-- LEFT'}"
         text_surface = self.font.render(direction_text, True, (0, 0, 0))
         self.screen.blit(text_surface, (10, 50))
         
         # Draw algorithm-specific information
         if self.algorithm == Algorithm.LETRERO:
-            time_text = f"Time until switch: {int(self.switch_time - (time.time() - self.last_switch))}"
+            time_text = f"Tiempo hasta el cambio de dirección: {int(self.switch_time - (time.time() - self.last_switch))}"
             text_surface = self.font.render(time_text, True, (0, 0, 0))
             self.screen.blit(text_surface, (10, 90))
         elif self.algorithm == Algorithm.EQUIDAD:
-            count_text = f"Cars passed: {self.cars_passed}/{self.cars_to_pass}"
+            count_text = f"Carros cruzados: {self.cars_passed}/{self.cars_to_pass}"
             text_surface = self.font.render(count_text, True, (0, 0, 0))
             self.screen.blit(text_surface, (10, 90))
         
         # Draw car waiting counts
         cars_left = sum(1 for car in self.cars if car.direction == Direction.RIGHT and not car.in_transit and not car.passed)
         cars_right = sum(1 for car in self.cars if car.direction == Direction.LEFT and not car.in_transit and not car.passed)
-        cars_text = f"Cars Left: {cars_left} | Cars Right: {cars_right}"
+        cars_text = f"Carros IZQ: {cars_left} | Carros DER: {cars_right}"
         text_surface = self.font.render(cars_text, True, (0, 0, 0))
         self.screen.blit(text_surface, (10, 130))
         
         # Draw current car info if available
         if self.current_car:
-            car_info = f"Current Car: TID {self.current_car.tid}, Type {self.current_car.tipo}, Time {self.current_car.tiempo}s"
+            car_info = f"CARRO PASANDO: TID {self.current_car.tid}, Type {self.current_car.tipo}, Time {self.current_car.tiempo}s"
             text_surface = self.font.render(car_info, True, (0, 0, 0))
             self.screen.blit(text_surface, (10, 170))
             
@@ -314,15 +336,11 @@ class TrafficSimulation:
             if self.current_car.start_crossing_time:
                 elapsed = time.time() - self.current_car.start_crossing_time
                 progress = min(elapsed / self.current_car.tiempo, 1.0) * 100
-                progress_text = f"Progress: {int(progress)}%"
+                progress_text = f"Progreso: {int(progress)}%"
                 text_surface = self.font.render(progress_text, True, (0, 0, 0))
                 self.screen.blit(text_surface, (10, 210))
         
-        # Instructions text
-        instructions = "Press 1: Letrero | 2: Equidad | 3: FIFO"
-        text_surface = self.font.render(instructions, True, (0, 0, 0))
-        self.screen.blit(text_surface, (WIDTH - text_surface.get_width() - 10, 10))
-        
+
         # Display 3s waiting indicator for cars not yet ready
         waiting_cars = [car for car in self.cars if not car.ready_to_cross]
         if waiting_cars:

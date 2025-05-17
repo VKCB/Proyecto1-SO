@@ -184,13 +184,13 @@ int obtener_count_derecha() {
 int main(int argc, char* argv[]) {
     srand(time(NULL));
 
-    if (argc < 4) {
-        printf("Uso: %s <algoritmo> <carros_izquierda> <carros_derecha>\n", argv[0]);
+    if (argc < 2) {
+        printf("Uso: %s <algoritmo> <control>\n", argv[0]);
         return 1;
     }
 
     const char* algoritmo = argv[1];
-    const char* control = argv[4];  // Elección de control: "Equidad" o "Letrero"
+    const char* control = argv[2];  // Elección de control: "Equidad" o "Letrero"
     
     printf("Algoritmo seleccionado: %s\n", algoritmo);
     printf("Control seleccionado: %s\n", control);
@@ -271,35 +271,9 @@ int main(int argc, char* argv[]) {
         }
     }
     
-
+    CEthread_exit();
     printf("Todos los carros cruzaron la carretera \n");
     return 0;
 }
 
-// Función simple que lanza el sistema con carros aleatorios
-void iniciar_simulacion(int cantidad_izq, int cantidad_der) {
-    iniciar_control_equidad(VALOR_W);  // Inicia el sistema de equidad
 
-    Car tid_letrero;
-    CEthread_create(&tid_letrero, controlador_letrero_equidad, NULL);
-
-    srand(time(NULL));
-
-    // Crear carros desde izquierda
-    for (int i = 0; i < cantidad_izq; i++) {
-        Car* car = malloc(sizeof(Car));
-        car->lugar_inicio = LUGAR_IZQUIERDA;
-        car->tipo = (i % 3 == 0) ? TIPO_PRIORITARIO : (i % 2 == 0) ? TIPO_SPORT : TIPO_NORMAL;
-        car->velocidad = 30.0f + (i % 3) * 10.0f;
-        CEthread_create(car, rutina_carro_equidad, car);
-    }
-
-    // Crear carros desde derecha
-    for (int i = 0; i < cantidad_der; i++) {
-        Car* car = malloc(sizeof(Car));
-        car->lugar_inicio = LUGAR_DERECHA;
-        car->tipo = (i % 3 == 0) ? TIPO_PRIORITARIO : (i % 2 == 0) ? TIPO_SPORT : TIPO_NORMAL;
-        car->velocidad = 30.0f + (i % 3) * 10.0f;
-        CEthread_create(car, rutina_carro_equidad, car);
-    }
-}
