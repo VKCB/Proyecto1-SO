@@ -220,23 +220,42 @@ class TrafficSimulation:
             
     
     def apply_letrero_algorithm(self):
-        # Switch direction based on time
+        # Check if there are any cars on the current side
+        cars_on_current_side = any(car for car in self.cars if 
+                                not car.in_transit and not car.passed and
+                                ((car.direction == Direction.RIGHT and self.current_direction == Direction.RIGHT) or
+                                (car.direction == Direction.LEFT and self.current_direction == Direction.LEFT)))
+        
+        # Switch direction if there are no cars on current side
+        if not cars_on_current_side:
+            self.current_direction = Direction.LEFT if self.current_direction == Direction.RIGHT else Direction.RIGHT
+            self.last_switch = time.time()
+            print(f"No cars on current side. Switching direction to {'RIGHT' if self.current_direction == Direction.RIGHT else 'LEFT'}")
+            return  # Return to avoid checking timer right after switching
+        
+        # Normal time-based direction switching
         current_time = time.time()
         if current_time - self.last_switch > self.switch_time:
             self.current_direction = Direction.LEFT if self.current_direction == Direction.RIGHT else Direction.RIGHT
             self.last_switch = current_time
-            print(f"Switching direction to {'RIGHT' if self.current_direction == Direction.RIGHT else 'LEFT'}")
+            print(f"Time expired. Switching direction to {'RIGHT' if self.current_direction == Direction.RIGHT else 'LEFT'}")
         
         # Find a car that's ready to cross in the current direction
         ready_cars = [car for car in self.cars if 
-                      car.ready_to_cross and not car.in_transit and not car.passed and
-                      ((car.direction == Direction.RIGHT and self.current_direction == Direction.RIGHT) or
-                       (car.direction == Direction.LEFT and self.current_direction == Direction.LEFT))]
+                    car.ready_to_cross and not car.in_transit and not car.passed and
+                    ((car.direction == Direction.RIGHT and self.current_direction == Direction.RIGHT) or
+                    (car.direction == Direction.LEFT and self.current_direction == Direction.LEFT))]
         
         if ready_cars:
-            self.current_car = ready_cars[0]
+            # First look for PRIO cars (priority vehicles)
+            prio_cars = [car for car in ready_cars if car.tipo == "PRIO"]
+            if prio_cars:
+                self.current_car = prio_cars[0]
+            else:
+                self.current_car = ready_cars[0]
+            
             self.current_car.in_transit = True
-    
+
     def apply_equidad_algorithm(self):
         # Get cars ready to cross on current side
         ready_cars = [car for car in self.cars if 
