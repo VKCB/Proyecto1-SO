@@ -126,7 +126,7 @@ int CEmutex_unlock(CEMutex* mutex) {
 }
 
 void CEthread_exit(void) {
-    _exit(0);
+    exit(0);
 }
 
 void CECond_init(CECond* cond) {

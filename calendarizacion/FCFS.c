@@ -24,8 +24,6 @@ void* funcion_carro_fcfs(void* arg) {
     printf("[FCFS] Carro %d está cruzando...\n", carro->tid);
     sleep(1); // Simula el tiempo que tarda en cruzar
     printf("[FCFS] Carro %d ha cruzado.\n", carro->tid);
-
-    CEthread_exit();
     return NULL;
 }
 

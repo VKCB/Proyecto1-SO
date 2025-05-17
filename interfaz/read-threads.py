@@ -3,13 +3,15 @@ import time
 import threading
 from menu_window import MenuWindow
 import subprocess
-
+import os
+import signal
 
 # This module integrates your thread monitoring code with the traffic simulation
 
 class ThreadMonitor:
     def __init__(self):
         self.all_threads = []
+        self.processed_threads = set()    
         self.monitor_active = False
         self.monitor_thread = None
     
@@ -25,6 +27,15 @@ class ThreadMonitor:
                 except FileNotFoundError:
                     continue
         return None
+    
+    def get_threads(self):
+        """Return only newly detected threads that haven't been processed yet."""
+        new_threads = []
+        for thread in self.all_threads:
+            if thread["tid"] not in self.processed_threads:
+                new_threads.append(thread)
+                self.processed_threads.add(thread["tid"])
+        return new_threads
 
     def list_threads(self, pid):
         """Devuelve una lista de TIDs y nombres de hilos del proceso con PID dado."""
@@ -48,7 +59,7 @@ class ThreadMonitor:
         """Function that runs in a separate thread to monitor test process threads."""
         import os
         seen_threads_global = set()
-        print("🔄 Iniciando monitor de proceso 'test'...\n")
+        print("Iniciando monitor de proceso 'test'...\n")
         
         try:
             while self.monitor_active:
@@ -109,12 +120,44 @@ class ThreadMonitor:
         if self.monitor_thread:
             self.monitor_thread.join(timeout=2)
     
-    def get_threads(self):
-        """Return the current list of threads."""
-        return self.all_threads.copy()
+    
+    # Function to find and kill the test process if it's running
+def kill_test_process():
+    try:
+        # First try using ps command to find the process
+        ps_output = subprocess.check_output(["ps", "-ef"], universal_newlines=True)
+        for line in ps_output.split('\n'):
+            if "./test" in line:
+                parts = line.split()
+                if len(parts) > 1:
+                    pid = int(parts[1])
+                    print(f"Killing test process with PID {pid}")
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(0.5)  # Give it time to terminate
+                    try:
+                        # Check if process still exists
+                        os.kill(pid, 0)
+                        # If we get here, process still exists, use SIGKILL
+                        print(f"Process {pid} still exists, using SIGKILL")
+                        os.kill(pid, signal.SIGKILL)
+                    except OSError:
+                        # Process is already gone
+                        pass
+        
+        # Alternative method using pkill
+        try:
+            subprocess.run(["pkill", "-f", "./test"], check=False)
+        except Exception:
+            pass
+            
+    except Exception as e:
+        print(f"Error trying to kill test process: {e}")
+
 
 # Main program to integrate the thread monitor with the traffic simulation
 if __name__ == "__main__":
+
+    kill_test_process()
     # Show menu window first
     menu = MenuWindow()
     config = menu.show()
@@ -130,7 +173,6 @@ if __name__ == "__main__":
 
         # Wait briefly to allow C simulation to start producing threads
         time.sleep(1)
-        
         # Import the traffic simulation code
         from traffic_simulation import TrafficSimulation, Car, Algorithm, Direction
         
@@ -183,24 +225,23 @@ if __name__ == "__main__":
                     
                     # Add any new threads as cars
                     for thread in new_threads:
-                        # Check if this thread is already a car
-                        if not any(car.tid == thread["tid"] for car in simulation.cars):
-                            car = Car(
-                                thread['tid'],
-                                thread['lado'],
-                                thread['tipo'],
-                                thread['velocidad'],
-                                thread['tiempo']
-                            )
-                            car.detection_time = thread['detected_time']  # Set detection time from thread
-                            simulation.cars.append(car)
-                            
-                            # If using FIFO algorithm, add to queue
-                            if simulation.algorithm == Algorithm.FIFO:
-                                simulation.car_queue.append(car)
+                        # No need to check if already exists since get_threads now only returns new ones
+                        car = Car(
+                            thread['tid'],
+                            thread['lado'],
+                            thread['tipo'],
+                            thread['velocidad'],
+                            thread['tiempo']
+                        )
+                        car.detection_time = thread['detected_time']  # Set detection time from thread
+                        simulation.cars.append(car)
+                        
+                        # If using FIFO algorithm, add to queue
+                        if simulation.algorithm == Algorithm.FIFO:
+                            simulation.car_queue.append(car)
                     
                     last_thread_check = current_time
-                
+
                 # Update and draw the simulation
                 simulation.update()
                 simulation.draw()
@@ -211,5 +252,19 @@ if __name__ == "__main__":
         finally:
             # Clean up
             monitor.stop_monitoring()
+            # Make sure to terminate the test process if it was started
+            if process is not None:
+                print("Terminating test process...")
+                process.terminate()
+                try:
+                    # Wait for process to terminate with timeout
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    # Kill the process if it doesn't terminate
+                    print("Process didn't terminate, killing it...")
+                    process.kill()
+            
+            # Make sure no test processes are left running
+            kill_test_process()
             pygame.quit()
             print("Simulation terminated")

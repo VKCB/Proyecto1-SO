@@ -162,11 +162,6 @@ class TrafficSimulation:
         
         # Font for text display
         self.font = pygame.font.Font(None, 36)
-        
-        self.thread_monitor = None  # Reference to ThreadMonitor
-
-    def set_thread_monitor(self, monitor):
-        self.thread_monitor = monitor
     
     def handle_events(self):
         for event in pygame.event.get():
@@ -185,19 +180,7 @@ class TrafficSimulation:
                     print("Algorithm switched to FIFO")
     
     def update(self):
-        # Check if all cars have passed
-        cars_left = sum(1 for car in self.cars if car.direction == Direction.RIGHT and not car.in_transit and not car.passed)
-        cars_right = sum(1 for car in self.cars if car.direction == Direction.LEFT and not car.in_transit and not car.passed)
-
-        if cars_left == 0 and cars_right == 0 and len(self.cars) > 0:
-            print("All cars have passed. Restarting monitoring...")
-            if self.thread_monitor:
-                self.thread_monitor.restart_monitoring()
-            self.cars.clear()
-            if hasattr(self, 'car_queue'):
-                self.car_queue.clear()
-
-        # Continue with normal update
+        # Check if current car has passed
         if self.current_car and self.current_car.passed:
             self.current_car = None
         
@@ -221,13 +204,20 @@ class TrafficSimulation:
                 car.move()  # This will only update ready_to_cross status
         
         # Remove passed cars from the lists
+        passed_cars = [car for car in self.cars if car.passed]
+        for passed_car in passed_cars:
+            if passed_car in self.cars:
+                self.cars.remove(passed_car)
+                try:
+                    self.car_queue.remove(passed_car)
+                except ValueError:
+                    pass  # Car might not be in the queue anymore
+        
+        # If current car has passed, reset it
         if self.current_car and self.current_car.passed:
-            self.cars = [car for car in self.cars if car.tid != self.current_car.tid]
-            try:
-                self.car_queue.remove(self.current_car)
-            except ValueError:
-                pass  # Car might not be in the queue anymore
             self.current_car = None
+
+            
     
     def apply_letrero_algorithm(self):
         # Switch direction based on time
@@ -360,16 +350,7 @@ class TrafficSimulation:
 # Example usage with mock data
 if __name__ == "__main__":
     # Mock data to test the simulation
-    all_threads = [
-        {"tid": "1", "lado": "IZQ", "tipo": "NORM", "velocidad": 50, "tiempo": 5},
-        {"tid": "2", "lado": "DER", "tipo": "NORM", "velocidad": 30, "tiempo": 3},
-        {"tid": "3", "lado": "IZQ", "tipo": "SPRT", "velocidad": 70, "tiempo": 2},
-        {"tid": "4", "lado": "DER", "tipo": "PRIO", "velocidad": 20, "tiempo": 8},
-        {"tid": "5", "lado": "IZQ", "tipo": "NORM", "velocidad": 40, "tiempo": 4},
-        {"tid": "6", "lado": "DER", "tipo": "SPRT", "velocidad": 60, "tiempo": 3},
-        {"tid": "7", "lado": "IZQ", "tipo": "PRIO", "velocidad": 25, "tiempo": 9},
-        {"tid": "8", "lado": "DER", "tipo": "NORM", "velocidad": 45, "tiempo": 5},
-    ]
+    all_threads = []
     
     sim = TrafficSimulation(all_threads)
     sim.run()

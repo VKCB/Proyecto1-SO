@@ -3,15 +3,15 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h> 
-#include "CEthreads.h"
+#include "CEthreads/CEthreads.h"
 #include <time.h> 
-#include "../config.h"
+#include "config.h"
 
-#include "../calendarizacion/c_prioridad.h"
-#include "../calendarizacion/c_tiempo_real.h"
-#include "../calendarizacion/FCFS.h"
-#include "../calendarizacion/SJF.h"
-#include "../calendarizacion/RR.h"
+#include "calendarizacion/c_prioridad.h"
+#include "calendarizacion/c_tiempo_real.h"
+#include "calendarizacion/FCFS.h"
+#include "calendarizacion/SJF.h"
+#include "calendarizacion/RR.h"
 
 
 // Variables globales para las filas de carros
@@ -53,12 +53,14 @@ void* rutina_carro_equidad(void* arg) {
 void* rutina_carro_letrero(void* arg) {
     Car* car = (Car*)arg;
     esperar_turno(car);  // Espera y cruza el puente (incluye el usleep)
+
     return NULL;
 }
 
 void* rutina_carro_fifo(void* arg) {
     Car* car = (Car*)arg;
     esperar_turno_FIFO(car);
+
     return NULL;
 }
 
@@ -271,8 +273,8 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    CEthread_exit();
     printf("Todos los carros cruzaron la carretera \n");
+    CEthread_exit();  // Finaliza el programa ordenadamente
     return 0;
 }
 
