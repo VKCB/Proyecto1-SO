@@ -10,9 +10,9 @@ int VALOR_W = 3;
 // Inicialización de los carros en la calle izquierda
 Car carros_izquierda[] = {
     {0, 1, 1, 0, 0, LUGAR_IZQUIERDA, TIPO_NORMAL, 40.0f, 1, 0, 0, 0, 0, 0.0f},  // Cambiado NULL a 0
-    {0, 1, 2, 0, 0, LUGAR_IZQUIERDA, TIPO_SPORT, 60.0f, 2, 0, 0, 0, 0, 0.0f},    // Cambiado NULL a 0
+    {0, 1, 2, 0, 0, LUGAR_IZQUIERDA, TIPO_NORMAL, 60.0f, 2, 0, 0, 0, 0, 0.0f},    // Cambiado NULL a 0
     {0, 1, 3, 0, 0, LUGAR_IZQUIERDA, TIPO_NORMAL, 40.0f, 1, 0, 0, 0, 0, 0.0f},  // Cambiado NULL a 0
-    {0, 1, 4, 0, 0, LUGAR_IZQUIERDA, TIPO_PRIORITARIO, 40.0f, 3, 0, 0, 0, 0, 0.0f}  // Cambiado NULL a 0
+    {0, 1, 4, 0, 0, LUGAR_IZQUIERDA, TIPO_NORMAL, 40.0f, 3, 0, 0, 0, 0, 0.0f}  // Cambiado NULL a 0
 };
 
 // Cálculo del número de carros en la fila izquierda
