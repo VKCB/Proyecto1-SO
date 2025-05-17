@@ -1,0 +1,10 @@
+{
+    "control_flujo": "RR", 
+    "largo_calle": 500,
+    "velocidad_carros": 10,
+    "cantidad_carros": 20,
+    "tiempo_letrero": 5,
+    "parametro_w": 3,
+    "quantum": 500000,
+    "prioridad_maxima": 10
+}
