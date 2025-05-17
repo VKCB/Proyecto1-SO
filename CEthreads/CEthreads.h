@@ -45,6 +45,7 @@ typedef struct {
     CECond cond;
     int listo; // 1 si puede correr
     float tiempo_restante;
+    int terminado; // 1 terminado 0 no terminado
 } Car;
 
 // Thread API
