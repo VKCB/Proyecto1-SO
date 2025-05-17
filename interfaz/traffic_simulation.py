@@ -268,7 +268,6 @@ class TrafficSimulation:
             if not ready_cars or self.cars_passed >= self.cars_to_pass:
                 self.current_direction = Direction.LEFT if self.current_direction == Direction.RIGHT else Direction.RIGHT
                 self.cars_passed = 0
-                print(f"Switching direction to {'RIGHT' if self.current_direction == Direction.RIGHT else 'LEFT'}")
                 return  # Wait for next update to select a car
         
         # If we have a car ready to cross in the current direction
