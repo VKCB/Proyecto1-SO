@@ -5,14 +5,18 @@
 
 #define ESPERA_SIN_CARROS_MS 2000  // Espera máxima si no hay carros (en ms)
 
-static LugarInicio lado_actual = LUGAR_IZQUIERDA;
-static CEMutex mutex_control;
+static LugarInicio lado_actual = LUGAR_IZQUIERDA; // empieza del lado izquierdo
+static CEMutex mutex_control; // Mutex controla lado_actual
 static CECond cond_izquierda;
 static CECond cond_derecha;
 
+//contadores de los carros que esperan
 static int esperando_izquierda = 0;
 static int esperando_derecha = 0;
+//contador de los carros que cruzan
 static int carros_en_cruce = 0;
+static int orden_llegada_izq = 0;
+static int orden_llegada_der = 0;
 
 void iniciar_control_FIFO() {
     CEmutex_init(&mutex_control);
@@ -85,6 +89,13 @@ void* controlador_letrero_FIFO(void* arg) {
         lado_actual = (lado_actual == LUGAR_IZQUIERDA) ? LUGAR_DERECHA : LUGAR_IZQUIERDA;
         printf("\n=== INICIO DE TURNO %s ===\n", lado_actual == LUGAR_IZQUIERDA ? "IZQUIERDA" : "DERECHA");
 
+        // Señalizar a los carros del nuevo lado que pueden avanzar
+        if (lado_actual == LUGAR_IZQUIERDA) {
+            CECond_broadcast(&cond_izquierda);
+        } else {
+            CECond_broadcast(&cond_derecha);
+        }
+
         CEmutex_unlock(&mutex_control);
     }
 
@@ -94,12 +105,29 @@ void* controlador_letrero_FIFO(void* arg) {
 void esperar_turno_FIFO(Car* car) {
     float tiempo_cruce = (LONGITUD_CALLE / car->velocidad) * 3600.0f;  // en segundos
 
+    // Verifica si el carro ya esta marcado como terminado
+    CEmutex_lock(&car->mutex);
+    if (car->terminado) {
+        printf("[FIFO] Carro TID=%d ya ha terminado, ignorando.\n", car->tid);
+        CEmutex_unlock(&car->mutex);
+        return;  // El carro ya cruzó, no hacer nada
+    }
+    CEmutex_unlock(&car->mutex);
+
     // Registrar carro esperando
     CEmutex_lock(&mutex_control);
-    if (car->lugar_inicio == LUGAR_IZQUIERDA)
+    int orden;
+    if (car->lugar_inicio == LUGAR_IZQUIERDA) {
         esperando_izquierda++;
-    else
+        orden = ++orden_llegada_izq;
+        printf("[FIFO] Carro TID=%d registrado como #%d en IZQUIERDA\n", 
+               car->tid, orden);
+    } else {
         esperando_derecha++;
+        orden = ++orden_llegada_der;
+        printf("[FIFO] Carro TID=%d registrado como #%d en DERECHA\n", 
+               car->tid, orden);
+    }
     CEmutex_unlock(&mutex_control);
 
     while (1) {
@@ -132,9 +160,14 @@ void esperar_turno_FIFO(Car* car) {
     // Simular cruce
     usleep((unsigned int)(tiempo_cruce * 1e6));
 
-    printf("Carro ha cruzado completamente: lugar=%s, vel=%.2f km/h, TID=%d\n",
+    // Marcar el carro como terminado
+    CEmutex_lock(&car->mutex);
+    car->terminado = 1;
+    CEmutex_unlock(&car->mutex);
+
+    printf("Carro ha cruzado completamente: lugar=%s, vel=%.2f km/h, orden=#%d, TID=%d\n",
            car->lugar_inicio == LUGAR_IZQUIERDA ? "IZQ" : "DER",
-           car->velocidad, car->tid);
+           car->velocidad, orden, car->tid);
 
     CEmutex_lock(&mutex_control);
     carros_en_cruce--;  // Marcar que terminó de cruzar
